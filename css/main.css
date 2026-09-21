@@ -170,6 +170,17 @@ button, input, select, textarea {
   margin-bottom: 1.25rem;
 }
 
+.sidebar-brand .brand-logo-img {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #ffffff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  border: 1.5px solid rgba(255, 255, 255, 0.25);
+  flex-shrink: 0;
+}
+
 .sidebar-brand .brand-logo-badge {
   width: 32px;
   height: 32px;
@@ -272,6 +283,22 @@ button, input, select, textarea {
   position: sticky;
   top: 0;
   z-index: 30;
+}
+
+.header-brand-title {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.mobile-header-logo {
+  display: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background-color: #ffffff;
+  border: 1px solid var(--border-color);
 }
 
 .page-title {

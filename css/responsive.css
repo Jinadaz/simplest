@@ -51,6 +51,10 @@ html, body, #app-container, .main-wrapper {
     height: 54px;
   }
 
+  .mobile-header-logo {
+    display: block !important;
+  }
+
   .page-title {
     font-size: 1rem;
   }

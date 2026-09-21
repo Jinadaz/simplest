@@ -11,6 +11,7 @@
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Simplest">
+  <link rel="icon" type="image/png" href="icons/logo.png">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
 
   <!-- Stylesheets -->
@@ -30,7 +31,7 @@
     <!-- 💻 Desktop Sidebar Navigation -->
     <aside class="sidebar">
       <div class="sidebar-brand">
-        <div class="brand-logo-badge">S</div>
+        <img src="icons/logo.png" alt="Simplest Logo" class="brand-logo-img">
         <span class="brand-title">Simplest</span>
       </div>
 
@@ -73,7 +74,10 @@
       
       <!-- Top Sticky Header Bar -->
       <header class="top-header">
-        <h1 class="page-title" id="main-header-title">Dashboard Overview</h1>
+        <div class="header-brand-title">
+          <img src="icons/logo.png" alt="Simplest Logo" class="mobile-header-logo">
+          <h1 class="page-title" id="main-header-title">Dashboard Overview</h1>
+        </div>
 
         <div class="header-actions">
           <button id="theme-toggle-btn" class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle Dark/Light Theme">
