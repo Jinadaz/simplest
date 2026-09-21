@@ -1,0 +1,139 @@
+/* Simplest - Responsive Rules & Zero Overflow Enforcement */
+
+/* Universal Overflow Lock */
+html, body, #app-container, .main-wrapper {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Tablet Layout (601px to 1024px) */
+@media (max-width: 1024px) {
+  :root {
+    --sidebar-width: 200px;
+  }
+
+  .content-body {
+    padding: 1.25rem 1.25rem 2.5rem 1.25rem;
+  }
+
+  .daily-cards-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.85rem;
+  }
+
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+  }
+}
+
+/* Mobile Layout (0px to 600px) */
+@media (max-width: 600px) {
+  /* Sidebar off */
+  .sidebar {
+    display: none !important;
+  }
+
+  /* Bottom Nav on */
+  .bottom-nav {
+    display: block !important;
+  }
+
+  .main-wrapper {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    padding-bottom: calc(var(--bottom-nav-height) + 0.85rem);
+  }
+
+  .top-header {
+    padding: 0 1rem;
+    height: 54px;
+  }
+
+  .page-title {
+    font-size: 1rem;
+  }
+
+  .content-body {
+    padding: 1rem 0.75rem 2rem 0.75rem;
+  }
+
+  /* Dashboard Stats Grid on Mobile */
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Mon-Fri Cards Grid on Mobile (Single Column) */
+  .daily-cards-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+
+  /* Table to Mobile Card Switch */
+  .desktop-table-view {
+    display: none !important;
+  }
+
+  .mobile-card-list {
+    display: flex !important;
+  }
+
+  .week-selector-card {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .week-nav-group {
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .modal-overlay {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-card {
+    max-width: 100% !important;
+    max-height: 88vh !important;
+    border-radius: 16px 16px 0 0 !important;
+    margin-top: auto;
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  .modal-body {
+    padding: 0.85rem 1rem !important;
+    flex: 1 !important;
+    overflow-y: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .modal-footer {
+    position: sticky !important;
+    bottom: 0 !important;
+    z-index: 50 !important;
+    background: #ffffff !important;
+    padding: 0.75rem 1rem !important;
+    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.06);
+    border-top: 1px solid var(--border-color);
+    display: flex !important;
+    gap: 0.5rem !important;
+  }
+
+  .modal-footer .btn {
+    flex: 1;
+    padding: 0.65rem 1rem;
+    font-size: 0.9rem;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+}
