@@ -99,6 +99,33 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ═══════════════════════════════════════
+   NATIVE APP SHELL: PREVENT TEXT SELECTION & DRAGGING
+═══════════════════════════════════════ */
+html, body, button, div, span, label, table, td, th, h1, h2, h3, h4, header, nav, section, article, a {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  user-drag: none;
+  -webkit-touch-callout: none;
+}
+
+/* Allow normal text selection inside inputs, textareas, and editable fields */
+input, textarea, [contenteditable="true"] {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
+/* Prevent image dragging globally for native app look & feel */
+img {
+  -webkit-user-drag: none;
+  user-drag: none;
+}
+
 body {
   min-height: 100vh;
   display: flex;

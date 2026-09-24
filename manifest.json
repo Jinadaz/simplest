@@ -1,7 +1,7 @@
 {
-  "name": "Simplest - 健康餐订单管理系统",
+  "name": "Simplest - Healthy Meal Management",
   "short_name": "Simplest",
-  "description": "简单高效的健康餐订单与厨房制作管理系统",
+  "description": "Simple and efficient healthy meal orders & kitchen preparation management system",
   "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#064e3b",

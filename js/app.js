@@ -77,6 +77,14 @@ function setupNavigation() {
     });
   });
 
+  // Global mobile haptic feedback on interactive button / tab clicks
+  document.addEventListener('pointerdown', (e) => {
+    const interactiveTarget = e.target.closest('button, .btn, .nav-item, .bottom-nav-item, .filter-pill, .daytype-btn, .portion-radio-btn, .date-select-card, .modal-close');
+    if (interactiveTarget && typeof triggerHapticFeedback === 'function') {
+      triggerHapticFeedback('light');
+    }
+  });
+
   // Modal ESC Key Close Listener
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -87,6 +95,11 @@ function setupNavigation() {
 
 function switchView(viewName) {
   currentView = viewName;
+
+  // Trigger haptic vibration on mobile view navigation
+  if (typeof triggerHapticFeedback === 'function') {
+    triggerHapticFeedback('light');
+  }
 
   // Toggle View Sections Visibility
   document.querySelectorAll('.view-section').forEach(sec => {

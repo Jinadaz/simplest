@@ -4,6 +4,7 @@
 let cachedMenus = {};
 let cachedContacts = {};
 let cachedOrders = {};
+let cachedPricing = { standard: 12.00, small: 9.00 };
 
 let dbListeners = [];
 let isDbInitialized = false;
@@ -16,7 +17,12 @@ function onDataChanged(callback) {
 }
 
 function notifyDataChanged() {
-  dbListeners.forEach(cb => cb({ menus: cachedMenus, contacts: cachedContacts, orders: cachedOrders }));
+  dbListeners.forEach(cb => cb({ 
+    menus: cachedMenus, 
+    contacts: cachedContacts, 
+    orders: cachedOrders,
+    pricing: cachedPricing 
+  }));
 }
 
 /**
@@ -49,6 +55,17 @@ async function initDatabase() {
       notifyDataChanged();
     });
 
+    db.ref('settings/pricing').on('value', (snapshot) => {
+      const val = snapshot.val();
+      if (val && (val.standard !== undefined || val.small !== undefined)) {
+        cachedPricing = {
+          standard: parseFloat(val.standard) || 12.00,
+          small: parseFloat(val.small) || 9.00
+        };
+      }
+      notifyDataChanged();
+    });
+
     // Clean state: Listeners attached, no auto-seeding for live user database
     console.log('[DB] Realtime Database listeners active and connected.');
   } else {
@@ -59,6 +76,22 @@ async function initDatabase() {
     const localMenus = localStorage.getItem('simplest_menus');
     const localContacts = localStorage.getItem('simplest_contacts');
     const localOrders = localStorage.getItem('simplest_orders');
+    const localPricing = localStorage.getItem('simplest_pricing');
+
+    if (localPricing) {
+      try {
+        const parsed = JSON.parse(localPricing);
+        cachedPricing = {
+          standard: parseFloat(parsed.standard) || 12.00,
+          small: parseFloat(parsed.small) || 9.00
+        };
+      } catch (e) {
+        cachedPricing = { standard: 12.00, small: 9.00 };
+      }
+    } else {
+      cachedPricing = { standard: 12.00, small: 9.00 };
+      localStorage.setItem('simplest_pricing', JSON.stringify(cachedPricing));
+    }
 
     if (!localMenus || !localContacts) {
       console.log('[DB] Seeding default initial data to Local Storage');
@@ -86,6 +119,7 @@ function saveToLocalStorage() {
   localStorage.setItem('simplest_menus', JSON.stringify(cachedMenus));
   localStorage.setItem('simplest_contacts', JSON.stringify(cachedContacts));
   localStorage.setItem('simplest_orders', JSON.stringify(cachedOrders));
+  localStorage.setItem('simplest_pricing', JSON.stringify(cachedPricing));
   notifyDataChanged();
 }
 
@@ -326,7 +360,7 @@ async function dbDeleteContact(contactId) {
 
 // Order DB Actions
 async function dbAddOrder(orderData) {
-  const orderId = 'ord_' + Date.now();
+  const orderId = 'ord_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
   const record = {
     ...orderData,
     orderId,
@@ -344,10 +378,9 @@ async function dbAddOrder(orderData) {
   return orderId;
 }
 
-async function dbUpdateOrderStatus(orderId, paymentStatus, orderStatus) {
+async function dbUpdatePaymentStatus(orderId, paymentStatus) {
   const updates = {};
   if (paymentStatus) updates.paymentStatus = paymentStatus;
-  if (orderStatus) updates.orderStatus = orderStatus;
 
   if (cachedOrders[orderId]) {
     cachedOrders[orderId] = { ...cachedOrders[orderId], ...updates };
@@ -361,6 +394,9 @@ async function dbUpdateOrderStatus(orderId, paymentStatus, orderStatus) {
   }
 }
 
+// Backwards-compatible alias
+const dbUpdateOrderStatus = dbUpdatePaymentStatus;
+
 async function dbDeleteOrder(orderId) {
   delete cachedOrders[orderId];
   notifyDataChanged();
@@ -370,4 +406,25 @@ async function dbDeleteOrder(orderId) {
   } else {
     saveToLocalStorage();
   }
+}
+
+// Pricing Settings Actions
+function dbGetPricing() {
+  return cachedPricing || { standard: 12.00, small: 9.00 };
+}
+
+async function dbSavePricing(pricing) {
+  cachedPricing = {
+    standard: parseFloat(pricing.standard) || 12.00,
+    small: parseFloat(pricing.small) || 9.00,
+    updatedAt: Date.now()
+  };
+  notifyDataChanged();
+
+  if (isFirebaseLive && db) {
+    await db.ref('settings/pricing').set(cachedPricing);
+  } else {
+    saveToLocalStorage();
+  }
+  return cachedPricing;
 }

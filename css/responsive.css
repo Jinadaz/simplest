@@ -250,10 +250,14 @@ html, body, #app-container, .main-wrapper {
     border-radius: var(--radius-md);
   }
 
-  /* ── Kitchen grid ── */
+    /* ── Kitchen grid ── */
   .kitchen-grid {
     grid-template-columns: 1fr 1fr;
     gap: 0.65rem;
+  }
+
+  #price-settings-header-btn span {
+    display: none;
   }
 }
 

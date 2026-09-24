@@ -3,7 +3,6 @@
 let ordersWeekOffset = 0;
 let orderFilterDate = 'All'; // 'All' or specific dateStr e.g. '2026-09-21'
 let orderFilterPayment = 'All';
-let orderFilterStatus = 'All';
 
 function initOrdersView() {
   renderOrders();
@@ -22,14 +21,12 @@ function setOrderDateFilter(dateStr) {
 }
 
 function setOrderFilter(type, value) {
-  if (type === 'payment') orderFilterPayment = value;
-  if (type === 'status') orderFilterStatus = value;
-
-  const group = type === 'payment' ? 'filter-payment' : 'filter-status';
-  document.querySelectorAll(`.${group}`).forEach(btn => {
-    btn.classList.toggle('active', btn.getAttribute('data-val') === value);
-  });
-
+  if (type === 'payment') {
+    orderFilterPayment = value;
+    document.querySelectorAll('.filter-payment').forEach(btn => {
+      btn.classList.toggle('active', btn.getAttribute('data-val') === value);
+    });
+  }
   renderOrders();
 }
 
@@ -69,7 +66,7 @@ function renderOrders() {
   const ordersArr = Object.values(cachedOrders || {}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
   // Week-level orders (for counting)
-  const weekOrders = ordersArr.filter(ord => weekDateSet.has(ord.date) && ord.orderStatus !== 'Cancelled');
+  const weekOrders = ordersArr.filter(ord => weekDateSet.has(ord.date));
   const weekMealsCount = weekOrders.reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
 
   if (totalCountEl) {
@@ -83,9 +80,6 @@ function renderOrders() {
 
     // 2. Payment filter
     if (orderFilterPayment !== 'All' && ord.paymentStatus !== orderFilterPayment) return false;
-
-    // 3. Status filter
-    if (orderFilterStatus !== 'All' && ord.orderStatus !== orderFilterStatus) return false;
 
     return true;
   });
@@ -108,6 +102,7 @@ function renderOrders() {
 
   filtered.forEach(ord => {
     const isPaid = ord.paymentStatus === 'Paid';
+    const portion = ord.portion || 'Standard';
     const waLink = createWhatsAppOrderLink(
       ord.customerPhone,
       ord.customerName,
@@ -115,31 +110,28 @@ function renderOrders() {
       ord.date,
       ord.foodName,
       ord.quantity,
-      ord.totalAmount
+      ord.totalAmount,
+      portion
     );
-
-    let statusBadgeClass = 'badge-confirmed';
-    if (ord.orderStatus === 'Pending') statusBadgeClass = 'badge-pending';
-    if (ord.orderStatus === 'Cancelled') statusBadgeClass = 'badge-cancelled';
 
     // Build Table Row (Desktop)
     tableRowsHtml += `
-      <tr>
+      <tr data-order-id="${ord.orderId}">
         <td style="font-weight: 700;">${ord.customerName}</td>
         <td style="color: var(--text-muted);">${ord.day.slice(0, 3)} (${formatDateReadable(ord.date)})</td>
         <td>
-          <span style="font-weight: 700;">${ord.foodName}</span>
-          <span style="color: var(--text-muted);">× ${ord.quantity}</span>
+          <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+            <span style="font-weight: 700;">${ord.foodName}</span>
+            <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">
+              ${portion === 'Small' ? 'Small' : 'Standard'}
+            </span>
+            <span style="color: var(--text-muted);">× ${ord.quantity}</span>
+          </div>
         </td>
         <td style="font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</td>
         <td>
           <button class="badge ${isPaid ? 'badge-paid' : 'badge-unpaid'}" style="cursor: pointer; border: none;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')">
             ${isPaid ? 'Paid' : 'Unpaid'}
-          </button>
-        </td>
-        <td>
-          <button class="badge ${statusBadgeClass}" style="cursor: pointer; border: none;" onclick="toggleOrderStatusAction('${ord.orderId}', '${ord.orderStatus}')">
-            ${ord.orderStatus}
           </button>
         </td>
         <td>
@@ -157,21 +149,20 @@ function renderOrders() {
 
     // Build Card Item (Mobile)
     mobileCardsHtml += `
-      <div class="mobile-data-card">
+      <div class="mobile-data-card" data-order-id="${ord.orderId}">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
           <span style="font-size: 1rem; font-weight: 800;">${ord.customerName}</span>
           <span style="font-size: 1.1rem; font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</span>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-          ${ord.day}, ${formatDateReadable(ord.date)} • 🥗 ${ord.foodName} × ${ord.quantity}
+          ${ord.day}, ${formatDateReadable(ord.date)} • 🥗 ${ord.foodName}
+          <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">${portion === 'Small' ? 'Small' : 'Standard'}</span>
+          × ${ord.quantity}
         </div>
-        <div style="display: flex; align-items: center; justify-content: space-between; pt-2; border-top: 1px dashed var(--border-color);">
+        <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
           <div style="display: flex; gap: 0.35rem;">
             <button class="badge ${isPaid ? 'badge-paid' : 'badge-unpaid'}" style="cursor: pointer; border: none;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')">
               ${isPaid ? 'Paid' : 'Unpaid'}
-            </button>
-            <button class="badge ${statusBadgeClass}" style="cursor: pointer; border: none;" onclick="toggleOrderStatusAction('${ord.orderId}', '${ord.orderStatus}')">
-              ${ord.orderStatus}
             </button>
           </div>
           <div style="display: flex; gap: 0.35rem;">
@@ -198,7 +189,6 @@ function renderOrders() {
             <th>Food Item</th>
             <th>Total Amount</th>
             <th>Payment Status</th>
-            <th>Order Status</th>
             <th>Actions</th>
           </tr>
         </thead>
@@ -218,16 +208,6 @@ function renderOrders() {
 async function togglePaymentStatusAction(orderId, currentStatus) {
   const nextStatus = currentStatus === 'Paid' ? 'Unpaid' : 'Paid';
   await dbUpdateOrderStatus(orderId, nextStatus, null);
-  renderOrders();
-}
-
-async function toggleOrderStatusAction(orderId, currentStatus) {
-  let nextStatus = 'Confirmed';
-  if (currentStatus === 'Confirmed') nextStatus = 'Pending';
-  else if (currentStatus === 'Pending') nextStatus = 'Cancelled';
-  else if (currentStatus === 'Cancelled') nextStatus = 'Confirmed';
-
-  await dbUpdateOrderStatus(orderId, null, nextStatus);
   renderOrders();
 }
 
@@ -265,7 +245,6 @@ function handleOrderCustomerSearch(query) {
       <div>
         <strong>${c.name}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${c.phone || 'No phone'})</span>
       </div>
-      ${c.company ? `<span class="badge badge-confirmed" style="font-size:0.65rem;">${c.company}</span>` : ''}
     `;
     item.onclick = () => selectOrderCustomer(c);
     dropdown.appendChild(item);
@@ -282,7 +261,7 @@ function selectOrderCustomer(customer) {
   const infoBadge = document.getElementById('order-customer-selected-info');
   if (infoBadge) {
     infoBadge.style.display = 'block';
-    infoBadge.textContent = `Selected: ${customer.name} • ${customer.phone || 'No phone'} ${customer.company ? '• ' + customer.company : ''}`;
+    infoBadge.textContent = `Selected: ${customer.name} • ${customer.phone || 'No phone'}`;
   }
 
   if (customer.remark) {
@@ -300,6 +279,21 @@ document.addEventListener('click', (e) => {
 });
 
 let selectedOrderDates = new Set();
+let selectedOrderPortion = 'Standard';
+
+function selectOrderPortion(portion) {
+  selectedOrderPortion = portion;
+  const btnStd = document.getElementById('portion-btn-standard');
+  const btnSml = document.getElementById('portion-btn-small');
+  const input = document.getElementById('order-input-portion');
+
+  if (btnStd) btnStd.classList.toggle('active', portion === 'Standard');
+  if (btnSml) btnSml.classList.toggle('active', portion === 'Small');
+  if (input) input.value = portion;
+
+  renderOrderDateCards();
+  updateOrderFormCalculations();
+}
 
 // Render 5 Mon-Fri Meal Date Cards inside Add Order modal (Multi-Select Supported)
 function renderOrderDateCards(defaultDateStr = null) {
@@ -309,15 +303,21 @@ function renderOrderDateCards(defaultDateStr = null) {
   grid.innerHTML = '';
   const weekDays = getWeekDays(ordersWeekOffset || 0);
 
-  selectedOrderDates.clear();
-  const dateToSelect = defaultDateStr || weekDays[0].dateStr;
-  selectedOrderDates.add(dateToSelect);
+  if (defaultDateStr) {
+    selectedOrderDates.clear();
+    selectedOrderDates.add(defaultDateStr);
+  } else if (selectedOrderDates.size === 0) {
+    selectedOrderDates.add(weekDays[0].dateStr);
+  }
+
+  const pricing = dbGetPricing();
+  const currentUnitPrice = selectedOrderPortion === 'Small' ? pricing.small : pricing.standard;
 
   weekDays.forEach((d) => {
     const menuObj = dbGetMenuByDate(d.dateStr);
     const hasMenu = !!(menuObj && menuObj.foodName);
     const foodName = hasMenu ? menuObj.foodName : 'No Menu';
-    const priceStr = hasMenu ? formatRM(menuObj.price) : 'RM --';
+    const priceStr = hasMenu ? formatRM(currentUnitPrice) : 'RM --';
     const imgSrc = (menuObj && menuObj.image) ? menuObj.image : '';
 
     const isSelected = selectedOrderDates.has(d.dateStr);
@@ -390,9 +390,24 @@ function openAddOrderModal(preselectedContactId = null) {
     selectOrderCustomer(cachedContacts[preselectedContactId]);
   }
 
+  // Reset portion selector to Standard
+  selectedOrderPortion = 'Standard';
+  const btnStd = document.getElementById('portion-btn-standard');
+  const btnSml = document.getElementById('portion-btn-small');
+  if (btnStd) btnStd.classList.add('active');
+  if (btnSml) btnSml.classList.remove('active');
+  const portionInput = document.getElementById('order-input-portion');
+  if (portionInput) portionInput.value = 'Standard';
+
+  // Update current pricing labels in modal
+  const pricing = dbGetPricing();
+  const stdLbl = document.getElementById('order-lbl-standard-price');
+  const smlLbl = document.getElementById('order-lbl-small-price');
+  if (stdLbl) stdLbl.textContent = formatRM(pricing.standard);
+  if (smlLbl) smlLbl.textContent = formatRM(pricing.small);
+
   document.getElementById('order-input-quantity').value = 1;
   document.getElementById('order-input-payment').value = 'Unpaid';
-  document.getElementById('order-input-status').value = 'Confirmed';
   document.getElementById('order-input-remark').value = '';
 
   renderOrderDateCards();
@@ -413,30 +428,28 @@ function closeAddOrderModal() {
 function updateOrderFormCalculations() {
   const quantity = parseInt(document.getElementById('order-input-quantity').value) || 1;
   const datesArr = Array.from(selectedOrderDates);
+  const pricing = dbGetPricing();
+  const unitPrice = selectedOrderPortion === 'Small' ? pricing.small : pricing.standard;
 
-  let combinedUnitPriceSum = 0;
-  datesArr.forEach(dStr => {
-    const menuObj = dbGetMenuByDate(dStr);
-    if (menuObj && menuObj.price) {
-      combinedUnitPriceSum += parseFloat(menuObj.price) || 0;
-    }
-  });
+  const datesCount = datesArr.length;
+  const total = unitPrice * datesCount * quantity;
+  const totalMealsCount = datesCount * quantity;
 
-  const total = combinedUnitPriceSum * quantity;
-  const totalMealsCount = datesArr.length * quantity;
-
-  // Set hidden input for HTML5 form validation
-  document.getElementById('order-input-date').value = datesArr.join(',');
+  // Set hidden input
+  const hiddenDateInput = document.getElementById('order-input-date');
+  if (hiddenDateInput) hiddenDateInput.value = datesArr.join(',');
 
   const titleEl = document.getElementById('order-selected-food-title');
   if (titleEl) {
+    const portionTag = selectedOrderPortion === 'Small' ? 'Small' : 'Standard';
     if (datesArr.length === 1) {
       const menuObj = dbGetMenuByDate(datesArr[0]);
       const weekDays = getWeekDays(ordersWeekOffset || 0);
       const matched = weekDays.find(w => w.dateStr === datesArr[0]);
-      titleEl.textContent = `${matched ? matched.day : ''}: ${menuObj ? menuObj.foodName : 'No Menu'}`;
+      const foodTitle = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
+      titleEl.textContent = `${matched ? matched.day : ''}: ${foodTitle} [${portionTag}]`;
     } else {
-      titleEl.textContent = `${datesArr.length} Days Selected (${totalMealsCount} Meals Total)`;
+      titleEl.textContent = `${datesArr.length} Days [${portionTag}] (${totalMealsCount} Meals Total)`;
     }
   }
 
@@ -446,42 +459,72 @@ function updateOrderFormCalculations() {
 
 async function saveOrderSubmit(event) {
   event.preventDefault();
-  const contactId = document.getElementById('order-input-customer').value;
+  let contactId = document.getElementById('order-input-customer').value;
+  const searchInputVal = document.getElementById('order-input-customer-search').value.trim();
   const quantity = parseInt(document.getElementById('order-input-quantity').value) || 1;
-  const paymentStatus = document.getElementById('order-input-payment').value;
-  const orderStatus = document.getElementById('order-input-status').value;
+  const paymentStatus = document.getElementById('order-input-payment').value || 'Unpaid';
   const remark = document.getElementById('order-input-remark').value.trim();
 
-  const selectedDates = Array.from(selectedOrderDates);
+  // If hidden contactId is empty, try to resolve from the search text or auto-create
+  if (!contactId && searchInputVal) {
+    const contactsArr = Object.values(cachedContacts || {});
+    const matched = contactsArr.find(c => 
+      c.name.toLowerCase() === searchInputVal.toLowerCase() ||
+      (c.phone && c.phone.includes(searchInputVal)) ||
+      `${c.name} (${c.phone || ''})`.toLowerCase().includes(searchInputVal.toLowerCase())
+    );
+
+    if (matched) {
+      contactId = matched.id;
+      selectOrderCustomer(matched);
+    } else {
+      // Auto-create contact so the order is never lost
+      const newContactId = await dbAddContact({
+        name: searchInputVal,
+        phone: '',
+        company: '',
+        address: '',
+        remark: ''
+      });
+      contactId = newContactId;
+      selectOrderCustomer(cachedContacts[newContactId]);
+    }
+  }
 
   if (!contactId) {
-    alert('Please select or search a valid customer');
+    alert('Please enter or select a customer name');
+    document.getElementById('order-input-customer-search').focus();
     return;
   }
 
-  const customer = cachedContacts[contactId];
-  if (!customer) {
-    alert('Invalid customer selected');
-    return;
-  }
+  const customer = cachedContacts[contactId] || { name: searchInputVal || 'Customer', phone: '' };
 
+  const selectedDates = Array.from(selectedOrderDates);
   if (selectedDates.length === 0) {
-    alert('Please select at least one meal date card');
-    return;
+    const weekDays = getWeekDays(ordersWeekOffset || 0);
+    if (weekDays && weekDays.length > 0) {
+      selectedDates.push(weekDays[0].dateStr);
+    } else {
+      alert('Please select at least one meal date card');
+      return;
+    }
   }
 
   const weekDays = getWeekDays(ordersWeekOffset || 0);
 
   // Batch create order records for each selected date card
+  const pricing = dbGetPricing();
+  const portion = selectedOrderPortion || 'Standard';
+  const unitPrice = portion === 'Small' ? pricing.small : pricing.standard;
+  const totalAmount = unitPrice * quantity;
+
+  const createdOrderIds = [];
+
   for (const dateStr of selectedDates) {
     const menuObj = dbGetMenuByDate(dateStr);
-    if (!menuObj) continue;
-
     const matchedDay = weekDays.find(d => d.dateStr === dateStr);
     const dayName = matchedDay ? matchedDay.day : 'Monday';
-
-    const unitPrice = parseFloat(menuObj.price) || 0;
-    const totalAmount = unitPrice * quantity;
+    const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
 
     const orderRecord = {
       contactId: contactId,
@@ -490,18 +533,27 @@ async function saveOrderSubmit(event) {
       date: dateStr,
       day: dayName,
       menuId: dateStr,
-      foodName: menuObj.foodName,
+      foodName: foodName,
+      portion: portion,
       unitPrice: unitPrice,
       quantity: quantity,
       totalAmount: totalAmount,
       paymentStatus: paymentStatus,
-      orderStatus: orderStatus,
       remark: remark || customer.remark || ''
     };
 
-    await dbAddOrder(orderRecord);
+    const newOrdId = await dbAddOrder(orderRecord);
+    createdOrderIds.push(newOrdId);
   }
 
   closeAddOrderModal();
   renderOrders();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderKitchen === 'function') renderKitchen();
+
+  // Clean circular checkmark animation
+  if (typeof showCleanCheckmark === 'function') {
+    showCleanCheckmark('Order Added');
+  }
 }
+

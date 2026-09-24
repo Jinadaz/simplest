@@ -79,6 +79,8 @@ function getSvgIcon(name, extraClass = '') {
     edit: `<svg class="svg-icon ${extraClass}" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`,
     trash: `<svg class="svg-icon ${extraClass}" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>`,
     user: `<svg class="svg-icon ${extraClass}" viewBox="0 0 24 24"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>`,
+    dollar: `<svg class="svg-icon ${extraClass}" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>`,
+    settings: `<svg class="svg-icon ${extraClass}" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`,
     lock: `<svg class="svg-icon ${extraClass}" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>`,
     utensils: `<svg class="svg-icon ${extraClass}" viewBox="0 0 24 24"><path d="M18 2v20"/><path d="M18 7H6v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7z"/></svg>`,
     sun: `<svg class="svg-icon ${extraClass}" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>`,
@@ -86,3 +88,53 @@ function getSvgIcon(name, extraClass = '') {
   };
   return icons[name] || '';
 }
+
+/**
+ * Mobile Haptic Vibration Feedback Helper
+ */
+function triggerHapticFeedback(type = 'light') {
+  if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+    try {
+      if (type === 'success') {
+        // Distinct vibration pattern for successful actions (order created, menu saved)
+        navigator.vibrate([35, 50, 35]);
+      } else if (type === 'medium') {
+        navigator.vibrate(30);
+      } else {
+        // Light tap vibration for button clicks and tab switches
+        navigator.vibrate(15);
+      }
+    } catch (e) {
+      // API un-permitted or unsupported
+    }
+  }
+}
+
+/**
+ * Show Clean Circular Checkmark Animation Overlay
+ */
+let cleanCheckmarkTimeout = null;
+function showCleanCheckmark(text = 'Saved') {
+  const overlay = document.getElementById('clean-checkmark-overlay');
+  const textEl = document.getElementById('clean-checkmark-text');
+  if (!overlay) return;
+
+  if (textEl) textEl.textContent = text;
+
+  // Trigger success vibration pattern on mobile devices
+  triggerHapticFeedback('success');
+
+  // Restart SVG stroke animation by removing and re-adding active class
+  overlay.classList.remove('active');
+  void overlay.offsetWidth; // trigger reflow
+  overlay.classList.add('active');
+
+  if (cleanCheckmarkTimeout) {
+    clearTimeout(cleanCheckmarkTimeout);
+  }
+
+  cleanCheckmarkTimeout = setTimeout(() => {
+    overlay.classList.remove('active');
+  }, 1150);
+}
+

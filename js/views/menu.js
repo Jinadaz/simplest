@@ -139,15 +139,12 @@ function renderMenu() {
       const img = data.image
         ? `<div class="cal-food-thumb" style="background-image:url('${data.image}')"></div>`
         : `<div class="cal-food-thumb cal-food-no-img">${getSvgIcon('utensils','')}</div>`;
-      // Only show: image + name + price (strip unavail badge — too cluttered in small square)
+      
       content = `
         ${img}
         <div class="cal-food-name">${data.foodName}</div>
-        <div class="cal-food-price">${formatRM(data.price)}</div>
       `;
-      // Show unavailability via a subtle bottom indicator stripe, not text
       if (!avail) cellClass += ' cal-unavail';
-
 
     } else {
       content = `<div class="cal-add-hint">${getSvgIcon('plus','')} Set Menu</div>`;
@@ -207,19 +204,36 @@ function setMenuDayType(type) {
 }
 
 /* ─────────────────────────────────────────
-   OPEN / CLOSE MODAL
+   OPEN / CLOSE MODAL & FORM DATA POPULATION
 ───────────────────────────────────────── */
-function openEditMenuModal(dateStr, dayName) {
-  editingMenuDate       = dateStr;
+function populateMenuFormData(dateStr, dayName) {
+  editingMenuDate = dateStr;
   currentCompressedBase64 = null;
 
   const existing = dbGetMenuByDate(dateStr);
   const dayType  = existing ? (existing.dayType || 'normal') : 'normal';
 
-  document.getElementById('menu-edit-date-display').textContent = `${dayName}, ${formatDateReadable(dateStr)}`;
+  const dateDisplayEl = document.getElementById('menu-edit-date-display');
+  if (dateDisplayEl) {
+    dateDisplayEl.textContent = `${dayName}, ${formatDateReadable(dateStr)}`;
+  }
+
+  const dateInputEl = document.getElementById('menu-input-date');
+  if (dateInputEl) {
+    dateInputEl.value = dateStr;
+  }
 
   document.getElementById('menu-input-foodName').value     = existing ? (existing.foodName    || '') : '';
-  document.getElementById('menu-input-price').value        = existing ? (existing.price        || '') : '';
+  
+  // Display current unified pricing
+  const pricing = dbGetPricing();
+  const stdPriceEl = document.getElementById('menu-modal-price-std');
+  const smlPriceEl = document.getElementById('menu-modal-price-sml');
+  if (stdPriceEl) stdPriceEl.textContent = `🍱 Standard: ${formatRM(pricing.standard)}`;
+  if (smlPriceEl) smlPriceEl.textContent = `🥣 Small: ${formatRM(pricing.small)}`;
+  const priceInputEl = document.getElementById('menu-input-price');
+  if (priceInputEl) priceInputEl.value = pricing.standard;
+
   document.getElementById('menu-input-cals').value         = existing ? (existing.calories     || '') : '';
   document.getElementById('menu-input-protein').value      = existing ? (existing.protein      || '') : '';
   document.getElementById('menu-input-carbs').value        = existing ? (existing.carbs        || '') : '';
@@ -239,13 +253,33 @@ function openEditMenuModal(dateStr, dayName) {
   }
 
   setMenuDayType(dayType);  // sets toggle + shows/hides sections
+}
 
+function openEditMenuModal(dateStr, dayName) {
+  if (!dateStr) {
+    const now = new Date();
+    dateStr = toDateStr(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
+  if (!dayName) {
+    const d = new Date(dateStr + 'T00:00:00');
+    dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+  }
+
+  populateMenuFormData(dateStr, dayName);
   document.getElementById('edit-menu-modal').classList.add('active');
+}
+
+function handleMenuDateChange(newDateStr) {
+  if (!newDateStr) return;
+  const d = new Date(newDateStr + 'T00:00:00');
+  const dayName = d.toLocaleDateString('en-US', { weekday: 'long' });
+  populateMenuFormData(newDateStr, dayName);
 }
 
 function closeEditMenuModal() {
   document.getElementById('edit-menu-modal').classList.remove('active');
-  editingMenuDate       = null;
+  editingMenuDate         = null;
   currentCompressedBase64 = null;
 }
 
@@ -273,17 +307,22 @@ async function handleMenuImageUpload(event) {
 ───────────────────────────────────────── */
 async function saveMenuSubmit(event) {
   event.preventDefault();
-  if (!editingMenuDate) return;
+  
+  const chosenDate = document.getElementById('menu-input-date').value || editingMenuDate;
+  if (!chosenDate) {
+    alert('Please select a menu date');
+    return;
+  }
 
   const dayType     = document.getElementById('menu-input-daytype').value;
   const holidayNote = document.getElementById('menu-input-holiday-note').value.trim();
-  const existing    = dbGetMenuByDate(editingMenuDate);
+  const existing    = dbGetMenuByDate(chosenDate);
   const storedDay   = existing
     ? existing.day
-    : new Date(editingMenuDate).toLocaleDateString('en-US', { weekday: 'long' });
+    : new Date(chosenDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' });
 
   let menuData = {
-    date:        editingMenuDate,
+    date:        chosenDate,
     day:         storedDay,
     dayType:     dayType,
     holidayNote: holidayNote
@@ -291,17 +330,18 @@ async function saveMenuSubmit(event) {
 
   if (dayType === 'normal') {
     const foodName = document.getElementById('menu-input-foodName').value.trim();
-    const price    = parseFloat(document.getElementById('menu-input-price').value);
+    const pricing  = dbGetPricing();
 
-    if (!foodName || isNaN(price)) {
-      alert('Please provide food name and a valid price');
+    if (!foodName) {
+      alert('Please provide food name');
       return;
     }
 
     menuData = {
       ...menuData,
       foodName:    foodName,
-      price:       price,
+      price:       pricing.standard,
+      priceSmall:  pricing.small,
       calories:    parseInt(document.getElementById('menu-input-cals').value)    || 0,
       protein:     parseInt(document.getElementById('menu-input-protein').value) || 0,
       carbs:       parseInt(document.getElementById('menu-input-carbs').value)   || 0,
@@ -312,9 +352,63 @@ async function saveMenuSubmit(event) {
     };
   }
 
-  await dbSaveMenu(editingMenuDate, menuData);
+  await dbSaveMenu(chosenDate, menuData);
   closeEditMenuModal();
+
+  // Refresh all relevant views immediately
   renderMenu();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderOrders === 'function') renderOrders();
+  if (typeof renderKitchen === 'function') renderKitchen();
+
+  // Clean, non-intrusive circular checkmark animation
+  if (typeof showCleanCheckmark === 'function') {
+    showCleanCheckmark('Menu Saved');
+  }
+}
+
+/* ─────────────────────────────────────────
+   GLOBAL PRICE SETTINGS MODAL CONTROLLER
+───────────────────────────────────────── */
+function openPriceSettingsModal() {
+  const pricing = dbGetPricing();
+  const stdInput = document.getElementById('pricing-input-standard');
+  const smlInput = document.getElementById('pricing-input-small');
+  
+  if (stdInput) stdInput.value = (pricing.standard || 12.00).toFixed(2);
+  if (smlInput) smlInput.value = (pricing.small || 9.00).toFixed(2);
+
+  const modal = document.getElementById('price-settings-modal');
+  if (modal) modal.classList.add('active');
+}
+
+function closePriceSettingsModal() {
+  const modal = document.getElementById('price-settings-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function savePriceSettingsSubmit(event) {
+  event.preventDefault();
+  const stdVal = parseFloat(document.getElementById('pricing-input-standard').value);
+  const smlVal = parseFloat(document.getElementById('pricing-input-small').value);
+
+  if (isNaN(stdVal) || stdVal < 0 || isNaN(smlVal) || smlVal < 0) {
+    alert('Please enter valid prices for both Standard and Small portions');
+    return;
+  }
+
+  await dbSavePricing({
+    standard: stdVal,
+    small: smlVal
+  });
+
+  closePriceSettingsModal();
+
+  // Refresh all views to reflect updated prices
+  if (typeof renderMenu === 'function') renderMenu();
+  if (typeof renderDashboard === 'function') renderDashboard();
+  if (typeof renderOrders === 'function') renderOrders();
+  if (typeof renderKitchen === 'function') renderKitchen();
 }
 
 

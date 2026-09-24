@@ -34,8 +34,8 @@ function renderDashboard() {
   const dateSet = new Set(weekDays.map(d => d.dateStr));
   const allOrders = Object.values(cachedOrders || {});
   
-  // Filter out cancelled orders and limit to selected week dates
-  const weekOrders = allOrders.filter(ord => dateSet.has(ord.date) && ord.orderStatus !== 'Cancelled');
+  // Limit to selected week dates
+  const weekOrders = allOrders.filter(ord => dateSet.has(ord.date));
 
   // Compute Total Orders, Total Meals, Total Revenue
   const totalOrdersCount = weekOrders.length;
@@ -67,7 +67,13 @@ function renderDashboard() {
 
     const hasMenu = !!(menuObj && menuObj.foodName);
     const foodName = hasMenu ? menuObj.foodName : 'No Menu Set';
-    const foodPrice = hasMenu ? formatRM(menuObj.price) : 'RM --';
+    const pricing = dbGetPricing();
+    const foodPriceHtml = hasMenu 
+      ? `<div class="food-price-pills">
+           <span class="price-pill-std">Std ${formatRM(pricing.standard)}</span>
+           <span class="price-pill-sml">Sml ${formatRM(pricing.small)}</span>
+         </div>`
+      : '<div class="food-price">RM --</div>';
     const imageSrc = (menuObj && menuObj.image) ? menuObj.image : '';
 
     let imageBlockHtml = '';
@@ -83,7 +89,7 @@ function renderDashboard() {
       imageBlockHtml = `
         <div class="food-no-img-empty">
           <div style="font-size: 0.775rem; font-weight: 700; color: var(--text-muted); margin-bottom: 0.35rem;">No Menu Set</div>
-          <button class="btn btn-outline btn-sm" onclick="switchView('menu')" style="padding: 0.2rem 0.5rem; font-size: 0.7rem;">
+          <button class="btn btn-primary btn-sm" onclick="openEditMenuModal('${dayInfo.dateStr}', '${dayInfo.day}')" style="padding: 0.25rem 0.65rem; font-size: 0.75rem;">
             ${getSvgIcon('plus', 'sm')} Add Menu
           </button>
         </div>
@@ -93,8 +99,13 @@ function renderDashboard() {
     const cardHtml = `
       <div class="food-card">
         <div class="food-card-header">
-          <span class="day-badge">${dayInfo.day.slice(0, 3)}</span>
-          <span class="day-date">${dayInfo.formatted}</span>
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span class="day-badge">${dayInfo.day.slice(0, 3)}</span>
+            <span class="day-date">${dayInfo.formatted}</span>
+          </div>
+          <button class="btn btn-outline btn-sm" onclick="openEditMenuModal('${dayInfo.dateStr}', '${dayInfo.day}')" title="Edit Menu for ${dayInfo.day}" style="padding: 0.2rem 0.45rem; font-size: 0.7rem;">
+            ${getSvgIcon('edit', 'sm')}
+          </button>
         </div>
         <div class="food-img-wrapper">
           ${imageBlockHtml}
@@ -102,7 +113,7 @@ function renderDashboard() {
         <div class="food-card-body">
           <div>
             <div class="food-title">${foodName}</div>
-            <div class="food-price">${foodPrice}</div>
+            ${foodPriceHtml}
           </div>
           <div class="food-stats-row">
             <div class="stat-pill">

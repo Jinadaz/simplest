@@ -80,6 +80,11 @@
         </div>
 
         <div class="header-actions">
+          <button id="price-settings-header-btn" class="btn btn-outline btn-sm" onclick="openPriceSettingsModal()" title="Meal Price Settings">
+            <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            <span>Set Prices</span>
+          </button>
+
           <button id="theme-toggle-btn" class="btn btn-outline btn-sm" onclick="toggleTheme()" title="Toggle Dark/Light Theme">
             <svg class="svg-icon sm" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
             <span>Dark</span>
@@ -152,6 +157,14 @@
               <span class="badge badge-confirmed" id="menu-month-summary" style="font-size:0.8rem; padding:0.3rem 0.7rem;">-- days set</span>
             </div>
             <div class="week-nav-group">
+              <button class="btn btn-primary btn-sm" onclick="openEditMenuModal()" title="Add or Edit Menu">
+                <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                <span>Add Menu</span>
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="openPriceSettingsModal()" title="Set Meal Prices">
+                <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                <span>Set Prices</span>
+              </button>
               <button class="btn btn-outline btn-sm" onclick="setMenuMonthOffset(-1)">&#8592; Prev</button>
               <button class="btn btn-secondary btn-sm" onclick="setMenuMonthOffset(0)">This Month</button>
               <button class="btn btn-outline btn-sm" onclick="setMenuMonthOffset(1)">Next &#8594;</button>
@@ -174,7 +187,7 @@
               <span class="search-icon-pos">
                 <svg class="svg-icon sm" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
               </span>
-              <input type="text" id="contact-search-input" class="search-input" placeholder="Search name, phone, company..." oninput="handleContactSearch(this.value)" />
+              <input type="text" id="contact-search-input" class="search-input" placeholder="Search name, phone, address..." oninput="handleContactSearch(this.value)" />
             </div>
 
             <button class="btn btn-primary" onclick="openAddContactModal()">
@@ -200,9 +213,9 @@
             <div style="display: flex; align-items: center; gap: 0.75rem;">
               <span class="badge badge-paid" id="orders-total-weekly-count" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">0 Orders</span>
               <div class="week-nav-group">
-                <button class="btn btn-outline btn-sm" onclick="setOrdersWeekOffset(-1)">Previous Week</button>
+                <button class="btn btn-outline btn-sm" onclick="setOrdersWeekOffset(-1)">&#8592; Prev</button>
                 <button class="btn btn-secondary btn-sm" onclick="setOrdersWeekOffset(0)">This Week</button>
-                <button class="btn btn-outline btn-sm" onclick="setOrdersWeekOffset(1)">Next Week</button>
+                <button class="btn btn-outline btn-sm" onclick="setOrdersWeekOffset(1)">Next &#8594;</button>
               </div>
             </div>
           </div>
@@ -211,11 +224,6 @@
             <div class="filter-pills" id="order-day-filter-pills">
               <!-- Dynamically rendered with Day + Date for current week -->
             </div>
-
-            <button class="btn btn-primary" onclick="openAddOrderModal()">
-              <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-              Add Order
-            </button>
           </div>
 
           <div style="display: flex; gap: 0.85rem; margin-bottom: 1.15rem; flex-wrap: wrap; font-size: 0.8rem; font-weight: 700;">
@@ -224,14 +232,6 @@
               <button class="filter-pill filter-payment active" data-val="All" onclick="setOrderFilter('payment', 'All')">All</button>
               <button class="filter-pill filter-payment" data-val="Paid" onclick="setOrderFilter('payment', 'Paid')">Paid</button>
               <button class="filter-pill filter-payment" data-val="Unpaid" onclick="setOrderFilter('payment', 'Unpaid')">Unpaid</button>
-            </div>
-
-            <div style="display: flex; align-items: center; gap: 0.35rem;">
-              <span style="color: var(--text-muted);">Status:</span>
-              <button class="filter-pill filter-status active" data-val="All" onclick="setOrderFilter('status', 'All')">All</button>
-              <button class="filter-pill filter-status" data-val="Confirmed" onclick="setOrderFilter('status', 'Confirmed')">Confirmed</button>
-              <button class="filter-pill filter-status" data-val="Pending" onclick="setOrderFilter('status', 'Pending')">Pending</button>
-              <button class="filter-pill filter-status" data-val="Cancelled" onclick="setOrderFilter('status', 'Cancelled')">Cancelled</button>
             </div>
           </div>
 
@@ -251,9 +251,9 @@
             <div style="display: flex; align-items: center; gap: 0.75rem;">
               <span class="badge badge-paid" id="kitchen-total-weekly-meals" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">0 Meals</span>
               <div class="week-nav-group">
-                <button class="btn btn-outline btn-sm" onclick="setKitchenWeekOffset(-1)">Previous Week</button>
+                <button class="btn btn-outline btn-sm" onclick="setKitchenWeekOffset(-1)">&#8592; Prev</button>
                 <button class="btn btn-secondary btn-sm" onclick="setKitchenWeekOffset(0)">This Week</button>
-                <button class="btn btn-outline btn-sm" onclick="setKitchenWeekOffset(1)">Next Week</button>
+                <button class="btn btn-outline btn-sm" onclick="setKitchenWeekOffset(1)">Next &#8594;</button>
               </div>
             </div>
           </div>
@@ -335,6 +335,12 @@
       <form onsubmit="saveMenuSubmit(event)">
         <div class="modal-body">
 
+          <!-- Date Selector -->
+          <div class="form-group" style="margin-bottom: 1.1rem;">
+            <label class="form-label">Menu Date *</label>
+            <input type="date" id="menu-input-date" class="form-control" onchange="handleMenuDateChange(this.value)" required />
+          </div>
+
           <!-- Day Type Selector -->
           <div class="form-group" style="margin-bottom:1.1rem;">
             <label class="form-label">Day Type</label>
@@ -367,18 +373,26 @@
               <input type="text" id="menu-input-foodName" class="form-control" placeholder="e.g. Grilled Chicken Rice Bowl" />
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Price (RM) *</label>
-                <input type="number" step="0.50" id="menu-input-price" class="form-control" placeholder="12.00" />
+            <!-- Unified Price Notice & Setting Shortcut -->
+            <div class="unified-price-box">
+              <div class="unified-price-header">
+                <span class="unified-price-title">Unified Daily Pricing</span>
+                <button type="button" class="btn btn-outline btn-sm" onclick="openPriceSettingsModal()" style="padding: 0.2rem 0.55rem; font-size: 0.725rem;">
+                  ⚙️ Change Prices
+                </button>
               </div>
+              <div class="unified-price-tags">
+                <span class="portion-badge portion-standard" id="menu-modal-price-std">🍱 Standard: RM 12.00</span>
+                <span class="portion-badge portion-small" id="menu-modal-price-sml">🥣 Small: RM 9.00</span>
+              </div>
+              <input type="hidden" id="menu-input-price" value="12.00" />
+            </div>
+
+            <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Calories (kcal)</label>
                 <input type="number" id="menu-input-cals" class="form-control" placeholder="480" />
               </div>
-            </div>
-
-            <div class="form-row">
               <div class="form-group">
                 <label class="form-label">Protein (g)</label>
                 <input type="number" id="menu-input-protein" class="form-control" placeholder="35" />
@@ -451,11 +465,6 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Company</label>
-            <input type="text" id="contact-input-company" class="form-control" placeholder="e.g. ABC Company" />
-          </div>
-
-          <div class="form-group">
             <label class="form-label">Address</label>
             <textarea id="contact-input-address" class="form-control" rows="2" placeholder="e.g. Level 12, Tower A..."></textarea>
           </div>
@@ -489,14 +498,36 @@
             <label class="form-label">Customer (Search Name or Phone) *</label>
             <div style="position: relative;">
               <input type="text" id="order-input-customer-search" class="form-control" placeholder="Type name or phone number..." autocomplete="off" oninput="handleOrderCustomerSearch(this.value)" onfocus="handleOrderCustomerSearch(this.value)" />
-              <input type="hidden" id="order-input-customer" required />
+              <input type="hidden" id="order-input-customer" />
               <div id="order-customer-dropdown" class="customer-search-dropdown" style="display:none;"></div>
             </div>
             <div id="order-customer-selected-info" style="display:none; font-size: 0.8rem; font-weight: 700; color: var(--primary-dark); background: var(--primary-light); padding: 0.35rem 0.65rem; border-radius: 6px; margin-top: 0.35rem;">
             </div>
           </div>
 
-          <!-- 2. Meal Date 5-Day Food Image Cards Selector (Multi-Select) -->
+          <!-- 2. Portion Size Selector (Standard vs Small) -->
+          <div class="form-group">
+            <label class="form-label">Portion Size *</label>
+            <div class="portion-radio-group">
+              <div class="portion-radio-btn active" id="portion-btn-standard" onclick="selectOrderPortion('Standard')">
+                <div class="portion-radio-icon">🍱</div>
+                <div class="portion-radio-content">
+                  <div class="portion-radio-name">Standard</div>
+                  <div class="portion-radio-price" id="order-lbl-standard-price">RM 12.00</div>
+                </div>
+              </div>
+              <div class="portion-radio-btn" id="portion-btn-small" onclick="selectOrderPortion('Small')">
+                <div class="portion-radio-icon">🥣</div>
+                <div class="portion-radio-content">
+                  <div class="portion-radio-name">Small</div>
+                  <div class="portion-radio-price" id="order-lbl-small-price">RM 9.00</div>
+                </div>
+              </div>
+            </div>
+            <input type="hidden" id="order-input-portion" value="Standard" />
+          </div>
+
+          <!-- 3. Meal Date 5-Day Food Image Cards Selector (Multi-Select) -->
           <div class="form-group">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem;">
               <label class="form-label" style="margin-bottom:0;">Select Meal Dates (Multi-Select) *</label>
@@ -505,7 +536,7 @@
             <div id="order-date-cards-grid" class="order-date-cards-grid">
               <!-- Rendered dynamically by js/views/orders.js -->
             </div>
-            <input type="hidden" id="order-input-date" required />
+            <input type="hidden" id="order-input-date" />
           </div>
 
           <!-- 3. Quantity Stepper (+/- buttons) & Total Amount -->
@@ -527,23 +558,12 @@
             </div>
           </div>
 
-          <div class="form-row">
-            <div class="form-group">
-              <label class="form-label">Payment Status</label>
-              <select id="order-input-payment" class="form-control">
-                <option value="Unpaid">Unpaid</option>
-                <option value="Paid">Paid</option>
-              </select>
-            </div>
-
-            <div class="form-group">
-              <label class="form-label">Order Status</label>
-              <select id="order-input-status" class="form-control">
-                <option value="Confirmed">Confirmed</option>
-                <option value="Pending">Pending</option>
-                <option value="Cancelled">Cancelled</option>
-              </select>
-            </div>
+          <div class="form-group">
+            <label class="form-label">Payment Status</label>
+            <select id="order-input-payment" class="form-control">
+              <option value="Unpaid">Unpaid</option>
+              <option value="Paid">Paid</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -572,7 +592,7 @@
           <div>
             <h2 id="profile-name" style="font-size: 1.2rem; font-weight: 800; color: var(--text-main);">Customer Name</h2>
             <div style="font-size: 0.825rem; color: var(--text-muted); margin-top: 0.2rem;">
-              📞 <span id="profile-phone">--</span> | 🏢 <span id="profile-company">--</span>
+              📞 <span id="profile-phone">--</span>
             </div>
             <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
               📍 <span id="profile-address">--</span>
@@ -614,6 +634,55 @@
     </div>
   </div>
 
+
+  <!-- 6. MEAL PRICE SETTINGS MODAL -->
+  <div id="price-settings-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 440px;">
+      <div class="modal-header">
+        <h3 class="modal-title">Meal Price Settings</h3>
+        <button class="modal-close" onclick="closePriceSettingsModal()">✕</button>
+      </div>
+      <form onsubmit="savePriceSettingsSubmit(event)">
+        <div class="modal-body">
+          <p style="font-size: 0.825rem; color: var(--text-muted); margin-bottom: 1.15rem; line-height: 1.45;">
+            Uniform meal pricing across all weekdays, available in <strong>Standard</strong> and <strong>Small</strong> portions. Changes are applied automatically to menus and ordering.
+          </p>
+
+          <div class="form-group">
+            <label class="form-label">🍱 Standard Portion Price (RM) *</label>
+            <div style="position: relative;">
+              <span style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); font-weight: 800; color: var(--text-muted);">RM</span>
+              <input type="number" step="0.50" min="0" id="pricing-input-standard" class="form-control" required placeholder="12.00" style="padding-left: 2.75rem; font-size: 1.05rem; font-weight: 700;" />
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">🥣 Small Portion Price (RM) *</label>
+            <div style="position: relative;">
+              <span style="position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); font-weight: 800; color: var(--text-muted);">RM</span>
+              <input type="number" step="0.50" min="0" id="pricing-input-small" class="form-control" required placeholder="9.00" style="padding-left: 2.75rem; font-size: 1.05rem; font-weight: 700;" />
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closePriceSettingsModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Prices</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- Clean Circular Checkmark Animation Overlay -->
+  <div id="clean-checkmark-overlay" class="clean-checkmark-overlay">
+    <div class="clean-checkmark-box">
+      <svg class="clean-checkmark-svg" viewBox="0 0 52 52">
+        <circle class="clean-checkmark-circle" cx="26" cy="26" r="24" fill="none"/>
+        <path class="clean-checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+      </svg>
+      <div class="clean-checkmark-text" id="clean-checkmark-text">Success</div>
+    </div>
+  </div>
 
   <!-- Application Scripts -->
   <script src="js/config.js"></script>

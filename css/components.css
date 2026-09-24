@@ -1361,3 +1361,317 @@
     font-size: 0.48rem;
   }
 }
+
+/* ─── Unified Pricing & Portion Controls ─── */
+.unified-price-box {
+  background: #f8fafc;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 0.9rem;
+  margin-bottom: 1rem;
+}
+
+.unified-price-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.unified-price-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.unified-price-tags {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+/* Portion Radio Group inside Add Order Modal */
+.portion-radio-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.portion-radio-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.7rem 0.85rem;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg);
+  cursor: pointer;
+  transition: var(--transition-fast);
+  user-select: none;
+}
+
+.portion-radio-btn:hover {
+  border-color: var(--primary-accent);
+  background: var(--primary-light);
+}
+
+.portion-radio-btn.active {
+  border-color: var(--primary-dark);
+  background: var(--primary-light);
+  box-shadow: 0 0 0 1px var(--primary-dark);
+}
+
+.portion-radio-icon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.portion-radio-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.portion-radio-name {
+  font-size: 0.85rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.portion-radio-price {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--primary-accent);
+}
+
+/* Portion Badges */
+.portion-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.45rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.725rem;
+  font-weight: 800;
+  line-height: 1.2;
+}
+
+.portion-standard {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.portion-small {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+[data-theme="dark"] .portion-standard {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .portion-small {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .portion-radio-btn {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .portion-radio-btn.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+}
+
+[data-theme="dark"] .unified-price-box {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+/* Dashboard Food Price Pills */
+.food-price-pills {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.5rem;
+}
+
+.price-pill-std, .price-pill-sml {
+  font-size: 0.725rem;
+  font-weight: 800;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+}
+
+.price-pill-std {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.price-pill-sml {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+[data-theme="dark"] .price-pill-std {
+  background: rgba(16, 185, 129, 0.15);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.3);
+}
+
+[data-theme="dark"] .price-pill-sml {
+  background: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+/* Kitchen Portion Breakdown */
+.kitchen-portion-breakdown {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.kitchen-portion-pill {
+  font-size: 0.725rem;
+  font-weight: 800;
+  padding: 0.2rem 0.55rem;
+  border-radius: var(--radius-sm);
+}
+
+.kitchen-portion-pill.standard {
+  background: #d1fae5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.kitchen-portion-pill.small {
+  background: #dbeafe;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
+}
+
+[data-theme="dark"] .kitchen-portion-pill.standard {
+  background: rgba(16, 185, 129, 0.2);
+  color: #6ee7b7;
+  border-color: rgba(16, 185, 129, 0.35);
+}
+
+[data-theme="dark"] .kitchen-portion-pill.small {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+  border-color: rgba(59, 130, 246, 0.35);
+}
+
+/* ═══════════════════════════════════════
+   CLEAN CIRCLE CHECKMARK ANIMATION
+═══════════════════════════════════════ */
+.clean-checkmark-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100000;
+  background: rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+
+.clean-checkmark-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.clean-checkmark-box {
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 1.75rem 2.25rem;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.18), 0 0 1px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.85rem;
+  min-width: 170px;
+  transform: scale(0.92);
+  transition: transform 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+[data-theme="dark"] .clean-checkmark-box {
+  background: #1e293b;
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.08);
+}
+
+.clean-checkmark-overlay.active .clean-checkmark-box {
+  transform: scale(1);
+}
+
+.clean-checkmark-svg {
+  width: 56px;
+  height: 56px;
+  display: block;
+}
+
+.clean-checkmark-circle {
+  stroke-dasharray: 151;
+  stroke-dashoffset: 151;
+  stroke-width: 3.5;
+  stroke-miterlimit: 10;
+  stroke: #10b981;
+}
+
+.clean-checkmark-overlay.active .clean-checkmark-circle {
+  animation: clean-stroke-circle 0.45s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.clean-checkmark-check {
+  transform-origin: 50% 50%;
+  stroke-dasharray: 48;
+  stroke-dashoffset: 48;
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke: #10b981;
+}
+
+.clean-checkmark-overlay.active .clean-checkmark-check {
+  animation: clean-stroke-check 0.35s cubic-bezier(0.65, 0, 0.45, 1) 0.35s forwards;
+}
+
+@keyframes clean-stroke-circle {
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes clean-stroke-check {
+  100% {
+    stroke-dashoffset: 0;
+  }
+}
+
+.clean-checkmark-text {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #1e293b;
+  text-align: center;
+  letter-spacing: -0.01em;
+}
+
+[data-theme="dark"] .clean-checkmark-text {
+  color: #f1f5f9;
+}
+

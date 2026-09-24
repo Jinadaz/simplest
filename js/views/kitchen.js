@@ -33,16 +33,32 @@ function renderKitchen() {
 
   container.innerHTML = '';
 
-  const allOrders = Object.values(cachedOrders || {}).filter(ord => ord.orderStatus !== 'Cancelled');
+  const allOrders = Object.values(cachedOrders || {});
   let weeklyMealsSum = 0;
+  let weeklyStdSum = 0;
+  let weeklySmlSum = 0;
 
   weekDays.forEach(dayInfo => {
     const menuObj = dbGetMenuByDate(dayInfo.dateStr);
     const dayOrders = allOrders.filter(ord => ord.date === dayInfo.dateStr);
     
-    const dayMealsTotal = dayOrders.reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
-    const dayOrdersTotal = dayOrders.length;
+    let dayMealsTotal = 0;
+    let dayStdTotal = 0;
+    let daySmlTotal = 0;
+
+    dayOrders.forEach(ord => {
+      const q = parseInt(ord.quantity) || 0;
+      dayMealsTotal += q;
+      if (ord.portion === 'Small') {
+        daySmlTotal += q;
+      } else {
+        dayStdTotal += q;
+      }
+    });
+
     weeklyMealsSum += dayMealsTotal;
+    weeklyStdSum += dayStdTotal;
+    weeklySmlSum += daySmlTotal;
 
     const foodName = menuObj ? menuObj.foodName : (dayOrders.length > 0 ? dayOrders[0].foodName : 'No Menu Set');
 
@@ -60,10 +76,14 @@ function renderKitchen() {
         <div class="kitchen-meal-box">
           <div class="kitchen-meal-val">${dayMealsTotal}</div>
           <div class="kitchen-meal-lbl">Meals To Prepare</div>
+          <div class="kitchen-portion-breakdown">
+            <span class="kitchen-portion-pill standard">🍱 Standard: ${dayStdTotal}</span>
+            <span class="kitchen-portion-pill small">🥣 Small: ${daySmlTotal}</span>
+          </div>
         </div>
 
         <div style="display: flex; align-items: center; justify-content: space-between; font-size: 0.775rem; color: var(--text-muted); font-weight: 600;">
-          <span>Orders: ${dayOrdersTotal}</span>
+          <span>Orders: ${dayOrders.length}</span>
           <span>${dayInfo.dateStr}</span>
         </div>
       </div>
@@ -73,6 +93,6 @@ function renderKitchen() {
   });
 
   if (totalMealsHeaderEl) {
-    totalMealsHeaderEl.textContent = `${weeklyMealsSum} Total Meals`;
+    totalMealsHeaderEl.textContent = `${weeklyMealsSum} Total Meals (Std: ${weeklyStdSum}, Sml: ${weeklySmlSum})`;
   }
 }
