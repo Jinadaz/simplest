@@ -1,22 +1,15 @@
 /* Simplest - Orders Management Controller */
 
-let ordersWeekOffset = 0;
-let orderFilterDate = 'All'; // 'All' or specific dateStr e.g. '2026-09-21'
+let ordersDayOffset = 0; // 0 = Today, -1 = Yesterday, +1 = Tomorrow
 let orderFilterPayment = 'All';
 
 function initOrdersView() {
   renderOrders();
 }
 
-function setOrdersWeekOffset(offsetChange) {
-  if (offsetChange === 0) ordersWeekOffset = 0;
-  else ordersWeekOffset += offsetChange;
-  orderFilterDate = 'All';
-  renderOrders();
-}
-
-function setOrderDateFilter(dateStr) {
-  orderFilterDate = dateStr;
+function setOrdersDayOffset(offsetChange) {
+  if (offsetChange === 0) ordersDayOffset = 0;
+  else ordersDayOffset += offsetChange;
   renderOrders();
 }
 
@@ -34,63 +27,53 @@ function renderOrders() {
   const container = document.getElementById('orders-list-container');
   if (!container) return;
 
-  const weekDays = getWeekDays(ordersWeekOffset);
+  const now = new Date();
+  const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ordersDayOffset);
 
-  // Update Week Title and Date Range
+  const yyyy = targetDate.getFullYear();
+  const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
+  const dd = String(targetDate.getDate()).padStart(2, '0');
+  const targetDateStr = `${yyyy}-${mm}-${dd}`;
+
+  const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
+  const formattedDate = formatDateReadable(targetDateStr);
+
+  // Update Title and Date Range
   const weekTitleEl = document.getElementById('orders-week-title');
   const weekRangeEl = document.getElementById('orders-week-range');
   const totalCountEl = document.getElementById('orders-total-weekly-count');
 
-  let labelText = 'This Week Orders';
-  if (ordersWeekOffset === -1) labelText = 'Previous Week Orders';
-  else if (ordersWeekOffset === 1) labelText = 'Next Week Orders';
-  else if (ordersWeekOffset < -1) labelText = `${Math.abs(ordersWeekOffset)} Weeks Ago Orders`;
-  else if (ordersWeekOffset > 1) labelText = `In ${ordersWeekOffset} Weeks Orders`;
+  let labelText = "Today's Orders";
+  if (ordersDayOffset === -1) labelText = "Yesterday's Orders";
+  else if (ordersDayOffset === 1) labelText = "Tomorrow's Orders";
+  else if (ordersDayOffset < -1) labelText = `${Math.abs(ordersDayOffset)} Days Ago Orders`;
+  else if (ordersDayOffset > 1) labelText = `In ${ordersDayOffset} Days Orders`;
 
   if (weekTitleEl) weekTitleEl.textContent = labelText;
-  if (weekRangeEl) weekRangeEl.textContent = `${weekDays[0].formatted} — ${weekDays[4].formatted}`;
+  if (weekRangeEl) weekRangeEl.textContent = `${dayName}, ${formattedDate}`;
 
   // iOS Segment Active State
   const pBtn = document.getElementById('orders-seg-prev');
   const cBtn = document.getElementById('orders-seg-current');
   const nBtn = document.getElementById('orders-seg-next');
   if (pBtn && cBtn && nBtn) {
-    pBtn.classList.toggle('active', ordersWeekOffset < 0);
-    cBtn.classList.toggle('active', ordersWeekOffset === 0);
-    nBtn.classList.toggle('active', ordersWeekOffset > 0);
+    pBtn.classList.toggle('active', ordersDayOffset < 0);
+    cBtn.classList.toggle('active', ordersDayOffset === 0);
+    nBtn.classList.toggle('active', ordersDayOffset > 0);
   }
 
-  // Render Day + Date Filter Pills dynamically
-  const pillsContainer = document.getElementById('order-day-filter-pills');
-  if (pillsContainer) {
-    let pillsHtml = `<button class="filter-pill ${orderFilterDate === 'All' ? 'active' : ''}" onclick="setOrderDateFilter('All')">All Days</button>`;
-    weekDays.forEach(d => {
-      const isSelected = orderFilterDate === d.dateStr;
-      pillsHtml += `<button class="filter-pill ${isSelected ? 'active' : ''}" onclick="setOrderDateFilter('${d.dateStr}')">${d.day.slice(0, 3)} (${d.formatted})</button>`;
-    });
-    pillsContainer.innerHTML = pillsHtml;
-  }
-
-  // Filter Orders
-  const weekDateSet = new Set(weekDays.map(d => d.dateStr));
+  // Filter Orders for Today/Target Date
   const ordersArr = Object.values(cachedOrders || {}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-  // Week-level orders (for counting)
-  const weekOrders = ordersArr.filter(ord => weekDateSet.has(ord.date));
-  const weekMealsCount = weekOrders.reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
+  const dayOrders = ordersArr.filter(ord => ord.date === targetDateStr);
+  const dayMealsCount = dayOrders.reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
 
   if (totalCountEl) {
-    totalCountEl.textContent = `${weekOrders.length} Orders (${weekMealsCount} Meals)`;
+    totalCountEl.textContent = `${dayOrders.length} Orders (${dayMealsCount} Meals Today)`;
   }
 
-  const filtered = ordersArr.filter(ord => {
-    // 1. Week & Date filter
-    if (!weekDateSet.has(ord.date)) return false;
-    if (orderFilterDate !== 'All' && ord.date !== orderFilterDate) return false;
-
-    // 2. Payment filter
+  const filtered = dayOrders.filter(ord => {
+    // Payment status filter
     if (orderFilterPayment !== 'All' && ord.paymentStatus !== orderFilterPayment) return false;
-
     return true;
   });
 
@@ -98,8 +81,8 @@ function renderOrders() {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon" style="display:flex; justify-content:center; margin-bottom:0.5rem;">${getSvgIcon('orders', 'lg')}</div>
-        <div style="font-weight:700; font-size:0.9rem;">No orders found</div>
-        <div style="font-size:0.8rem; color:var(--text-muted);">Try adjusting your date or status filters</div>
+        <div style="font-weight:700; font-size:0.9rem;">No orders for ${dayName} (${formattedDate})</div>
+        <div style="font-size:0.8rem; color:var(--text-muted);">Try adjusting payment status or navigate to another date</div>
       </div>
     `;
     return;
@@ -305,35 +288,58 @@ function selectOrderPortion(portion) {
   updateOrderFormCalculations();
 }
 
+function selectOrderPaymentStatus(status) {
+  const hiddenInput = document.getElementById('order-input-payment');
+  if (hiddenInput) hiddenInput.value = status;
+
+  const unpaidCard = document.getElementById('payment-radio-card-unpaid');
+  const paidCard = document.getElementById('payment-radio-card-paid');
+
+  if (unpaidCard) unpaidCard.classList.toggle('active', status === 'Unpaid');
+  if (paidCard) paidCard.classList.toggle('active', status === 'Paid');
+
+  const unpaidRadio = unpaidCard ? unpaidCard.querySelector('input') : null;
+  const paidRadio = paidCard ? paidCard.querySelector('input') : null;
+  if (unpaidRadio) unpaidRadio.checked = (status === 'Unpaid');
+  if (paidRadio) paidRadio.checked = (status === 'Paid');
+}
+
 // Render 5 Mon-Fri Meal Date Cards inside Add Order modal (Multi-Select Supported)
 function renderOrderDateCards(defaultDateStr = null) {
   const grid = document.getElementById('order-date-cards-grid');
   if (!grid) return;
 
   grid.innerHTML = '';
-  const weekDays = getWeekDays(ordersWeekOffset || 0);
+  const weekDays = getWeekDays(0);
 
-  if (defaultDateStr) {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  if (defaultDateStr && defaultDateStr >= todayStr) {
     selectedOrderDates.clear();
     selectedOrderDates.add(defaultDateStr);
-  } else if (selectedOrderDates.size === 0) {
-    selectedOrderDates.add(weekDays[0].dateStr);
   }
 
-  const pricing = dbGetPricing();
-  const currentUnitPrice = selectedOrderPortion === 'Small' ? pricing.small : pricing.standard;
-
   weekDays.forEach((d) => {
+    const isPast = d.dateStr < todayStr;
     const menuObj = dbGetMenuByDate(d.dateStr);
     const hasMenu = !!(menuObj && menuObj.foodName);
     const foodName = hasMenu ? menuObj.foodName : 'No Menu';
-    const priceStr = hasMenu ? formatRM(currentUnitPrice) : 'RM --';
     const imgSrc = (menuObj && menuObj.image) ? menuObj.image : '';
+
+    // Format YYYY-MM-DD to DD/M (e.g. 2026-09-16 -> 16/9)
+    const dateParts = d.dateStr.split('-');
+    const dayNum = parseInt(dateParts[2], 10);
+    const monthNum = parseInt(dateParts[1], 10);
+    const dateNumStr = `${dayNum}/${monthNum}`;
 
     const isSelected = selectedOrderDates.has(d.dateStr);
 
     const card = document.createElement('div');
-    card.className = `date-select-card ${isSelected ? 'active' : ''}`;
+    card.className = `date-select-card ${isSelected ? 'active' : ''} ${isPast ? 'disabled' : ''}`;
     card.setAttribute('data-date', d.dateStr);
 
     let imgHtml = '';
@@ -347,12 +353,15 @@ function renderOrderDateCards(defaultDateStr = null) {
       <div class="date-select-check">✓</div>
       ${imgHtml}
       <div class="date-select-day">${d.day.slice(0, 3)}</div>
-      <div class="date-select-date">${d.formatted}</div>
+      <div class="date-select-date" style="font-weight:800;">${dateNumStr}</div>
       <div class="date-select-food">${foodName}</div>
-      <div class="date-select-price">${priceStr}</div>
     `;
 
-    card.onclick = () => toggleOrderDateCard(d.dateStr, d.day, menuObj);
+    if (!isPast) {
+      card.onclick = () => toggleOrderDateCard(d.dateStr, d.day, menuObj);
+    } else {
+      card.title = 'Past dates cannot be selected';
+    }
     grid.appendChild(card);
   });
 
@@ -360,11 +369,16 @@ function renderOrderDateCards(defaultDateStr = null) {
 }
 
 function toggleOrderDateCard(dateStr, dayName, menuObj) {
+  const now = new Date();
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, '0');
+  const dd = String(now.getDate()).padStart(2, '0');
+  const todayStr = `${yyyy}-${mm}-${dd}`;
+
+  if (dateStr < todayStr) return; // Prevent selecting past dates
+
   if (selectedOrderDates.has(dateStr)) {
-    // Only unselect if at least 1 date remains selected
-    if (selectedOrderDates.size > 1) {
-      selectedOrderDates.delete(dateStr);
-    }
+    selectedOrderDates.delete(dateStr);
   } else {
     selectedOrderDates.add(dateStr);
   }
@@ -417,8 +431,13 @@ function openAddOrderModal(preselectedContactId = null) {
   if (smlLbl) smlLbl.textContent = formatRM(pricing.small);
 
   document.getElementById('order-input-quantity').value = 1;
-  document.getElementById('order-input-payment').value = 'Unpaid';
   document.getElementById('order-input-remark').value = '';
+
+  // Reset payment status to Unpaid
+  selectOrderPaymentStatus('Unpaid');
+
+  // Clear date selection so no date is selected by default
+  selectedOrderDates.clear();
 
   renderOrderDateCards();
   document.getElementById('add-order-modal').classList.add('active');
@@ -452,9 +471,11 @@ function updateOrderFormCalculations() {
   const titleEl = document.getElementById('order-selected-food-title');
   if (titleEl) {
     const portionTag = selectedOrderPortion === 'Small' ? 'Small' : 'Standard';
-    if (datesArr.length === 1) {
+    if (datesArr.length === 0) {
+      titleEl.textContent = 'Please select meal date(s)';
+    } else if (datesArr.length === 1) {
       const menuObj = dbGetMenuByDate(datesArr[0]);
-      const weekDays = getWeekDays(ordersWeekOffset || 0);
+      const weekDays = getWeekDays(0);
       const matched = weekDays.find(w => w.dateStr === datesArr[0]);
       const foodTitle = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
       titleEl.textContent = `${matched ? matched.day : ''}: ${foodTitle} [${portionTag}]`;
@@ -511,7 +532,7 @@ async function saveOrderSubmit(event) {
 
   const selectedDates = Array.from(selectedOrderDates);
   if (selectedDates.length === 0) {
-    const weekDays = getWeekDays(ordersWeekOffset || 0);
+    const weekDays = getWeekDays(0);
     if (weekDays && weekDays.length > 0) {
       selectedDates.push(weekDays[0].dateStr);
     } else {
@@ -520,7 +541,7 @@ async function saveOrderSubmit(event) {
     }
   }
 
-  const weekDays = getWeekDays(ordersWeekOffset || 0);
+  const weekDays = getWeekDays(0);
 
   // Batch create order records for each selected date card
   const pricing = dbGetPricing();

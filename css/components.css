@@ -762,6 +762,15 @@
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
 }
 
+.date-select-card.disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  pointer-events: none;
+  background: var(--bg-body, #f1f5f9);
+  border-color: var(--border-color, #cbd5e1);
+  filter: grayscale(0.6);
+}
+
 .date-select-img {
   width: 100%;
   aspect-ratio: 4/3;
@@ -1891,5 +1900,91 @@
 [data-theme="dark"] .material-photo-sub {
   color: #94a3b8;
 }
+
+/* ==========================================================================
+   Payment Status Radio Button Group
+   ========================================================================== */
+.payment-radio-group {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.payment-radio-card {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius-md, 8px);
+  border: 1.5px solid var(--border-color, #cbd5e1);
+  background: var(--card-bg, #ffffff);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+}
+
+.payment-radio-card input[type="radio"] {
+  display: none;
+}
+
+.payment-radio-dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.payment-radio-card.active .payment-radio-dot {
+  border-color: currentColor;
+}
+
+.payment-radio-card.active .payment-radio-dot::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.payment-radio-title {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.payment-radio-card.unpaid.active {
+  border-color: #f59e0b;
+  background: #fffbeb;
+  color: #d97706;
+}
+
+.payment-radio-card.paid.active {
+  border-color: #10b981;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+[data-theme="dark"] .payment-radio-card {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .payment-radio-card.unpaid.active {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: #f59e0b;
+  color: #fbbf24;
+}
+
+[data-theme="dark"] .payment-radio-card.paid.active {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+  color: #34d399;
+}
+
 
 

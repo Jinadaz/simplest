@@ -281,6 +281,11 @@ html, body, #app-container, .main-wrapper {
   #price-settings-header-btn span {
     display: none;
   }
+
+  /* Hide food name on mobile meal date selection cards */
+  .order-date-cards-grid .date-select-food {
+    display: none !important;
+  }
 }
 
 /* ═══════════════════════════════════════

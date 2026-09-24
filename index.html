@@ -209,32 +209,26 @@
 
         <!-- 4. VIEW: ORDERS -->
         <section id="view-orders" class="view-section">
-          <!-- Orders Week Selector Toolbar -->
+          <!-- Orders Day Selector Toolbar -->
           <div class="week-selector-card">
             <div class="week-selector-header">
               <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 <div>
-                  <div class="week-title" id="orders-week-title">This Week Orders</div>
+                  <div class="week-title" id="orders-week-title">Today's Orders</div>
                   <div class="week-date-range" id="orders-week-range">--</div>
                 </div>
               </div>
-              <span class="badge badge-paid" id="orders-total-weekly-count" style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Orders</span>
+              <span class="badge badge-paid" id="orders-total-weekly-count" style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Orders Today</span>
             </div>
 
             <div class="ios-segmented-nav">
-              <button type="button" class="ios-segment-btn" id="orders-seg-prev" onclick="setOrdersWeekOffset(-1)">&#8592; Prev</button>
-              <button type="button" class="ios-segment-btn active" id="orders-seg-current" onclick="setOrdersWeekOffset(0)">This Week</button>
-              <button type="button" class="ios-segment-btn" id="orders-seg-next" onclick="setOrdersWeekOffset(1)">Next &#8594;</button>
+              <button type="button" class="ios-segment-btn" id="orders-seg-prev" onclick="setOrdersDayOffset(-1)">&#8592; Prev</button>
+              <button type="button" class="ios-segment-btn active" id="orders-seg-current" onclick="setOrdersDayOffset(0)">Today</button>
+              <button type="button" class="ios-segment-btn" id="orders-seg-next" onclick="setOrdersDayOffset(1)">Next &#8594;</button>
             </div>
           </div>
 
-          <div class="toolbar-row">
-            <div class="filter-pills" id="order-day-filter-pills">
-              <!-- Dynamically rendered with Day + Date for current week -->
-            </div>
-          </div>
-
-          <div style="display: flex; gap: 0.85rem; margin-bottom: 1.15rem; flex-wrap: wrap; font-size: 0.8rem; font-weight: 700;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; font-weight: 700;">
             <div style="display: flex; align-items: center; gap: 0.35rem;">
               <span style="color: var(--text-muted);">Payment:</span>
               <button class="filter-pill filter-payment active" data-val="All" onclick="setOrderFilter('payment', 'All')">All</button>
@@ -603,11 +597,20 @@
           </div>
 
           <div class="form-group">
-            <label class="form-label">Payment Status</label>
-            <select id="order-input-payment" class="form-control">
-              <option value="Unpaid">Unpaid</option>
-              <option value="Paid">Paid</option>
-            </select>
+            <label class="form-label">Payment Status *</label>
+            <div class="payment-radio-group">
+              <label class="payment-radio-card unpaid active" id="payment-radio-card-unpaid">
+                <input type="radio" name="orderPaymentStatus" value="Unpaid" checked onchange="selectOrderPaymentStatus('Unpaid')" />
+                <span class="payment-radio-dot"></span>
+                <span class="payment-radio-title">Unpaid</span>
+              </label>
+              <label class="payment-radio-card paid" id="payment-radio-card-paid">
+                <input type="radio" name="orderPaymentStatus" value="Paid" onchange="selectOrderPaymentStatus('Paid')" />
+                <span class="payment-radio-dot"></span>
+                <span class="payment-radio-title">Paid</span>
+              </label>
+            </div>
+            <input type="hidden" id="order-input-payment" value="Unpaid" />
           </div>
 
           <div class="form-group">
