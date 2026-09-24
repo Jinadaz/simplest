@@ -102,16 +102,18 @@
         
         <!-- 1. VIEW: DASHBOARD -->
         <section id="view-dashboard" class="view-section active">
-          <!-- Week Selector Toolbar -->
+          <!-- Day Selector Toolbar -->
           <div class="week-selector-card">
-            <div>
-              <div class="week-title" id="dashboard-week-title">Weekly Overview</div>
-              <div class="week-date-range" id="dashboard-week-range">--</div>
+            <div class="week-selector-header">
+              <div>
+                <div class="week-title" id="dashboard-week-title">Today's Food</div>
+                <div class="week-date-range" id="dashboard-week-range">--</div>
+              </div>
             </div>
-            <div class="week-nav-group">
-              <button class="btn btn-outline btn-sm" onclick="setDashboardWeekOffset(-1)">Previous Week</button>
-              <button class="btn btn-secondary btn-sm" onclick="setDashboardWeekOffset(0)">This Week</button>
-              <button class="btn btn-outline btn-sm" onclick="setDashboardWeekOffset(1)">Next Week</button>
+            <div class="ios-segmented-nav">
+              <button type="button" class="ios-segment-btn" id="dash-seg-prev" onclick="setDashboardDayOffset(-1)">&#8592; Prev</button>
+              <button type="button" class="ios-segment-btn active" id="dash-seg-current" onclick="setDashboardDayOffset(0)">Today</button>
+              <button type="button" class="ios-segment-btn" id="dash-seg-next" onclick="setDashboardDayOffset(1)">Next &#8594;</button>
             </div>
           </div>
 
@@ -119,28 +121,28 @@
           <div class="stats-grid">
             <div class="stat-card">
               <div>
-                <div class="stat-label">Total Orders</div>
+                <div class="stat-label">Today's Orders</div>
                 <div class="stat-value" id="dash-stat-orders">0</div>
               </div>
             </div>
 
             <div class="stat-card">
               <div>
-                <div class="stat-label">Total Meals</div>
+                <div class="stat-label">Today's Meals</div>
                 <div class="stat-value" id="dash-stat-meals">0</div>
               </div>
             </div>
 
             <div class="stat-card">
               <div>
-                <div class="stat-label">Total Revenue</div>
+                <div class="stat-label">Today's Revenue</div>
                 <div class="stat-value" id="dash-stat-revenue" style="color: var(--primary-accent);">RM 0.00</div>
               </div>
             </div>
           </div>
 
-          <!-- Daily Menu 5-Column Grid -->
-          <div class="daily-cards-grid" id="dashboard-daily-grid">
+          <!-- Daily Menu Food Card Container -->
+          <div class="daily-cards-grid single-day-grid" id="dashboard-daily-grid">
             <!-- Rendered dynamically by js/views/dashboard.js -->
           </div>
         </section>
@@ -150,24 +152,27 @@
         <section id="view-menu" class="view-section">
           <!-- Month Navigation Toolbar -->
           <div class="week-selector-card">
-            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
-              <div>
+            <div class="week-selector-header">
+              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 <div class="week-title" id="menu-month-title">Monthly Menu</div>
+                <span class="badge badge-confirmed" id="menu-month-summary" style="font-size:0.775rem; padding:0.25rem 0.6rem;">-- days set</span>
               </div>
-              <span class="badge badge-confirmed" id="menu-month-summary" style="font-size:0.8rem; padding:0.3rem 0.7rem;">-- days set</span>
+              <div style="display:flex; gap:0.4rem; align-items:center;">
+                <button class="btn btn-primary btn-sm" onclick="openEditMenuModal()" title="Add or Edit Menu">
+                  <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                  <span>Add Menu</span>
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="openPriceSettingsModal()" title="Set Meal Prices">
+                  <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                  <span>Set Prices</span>
+                </button>
+              </div>
             </div>
-            <div class="week-nav-group">
-              <button class="btn btn-primary btn-sm" onclick="openEditMenuModal()" title="Add or Edit Menu">
-                <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-                <span>Add Menu</span>
-              </button>
-              <button class="btn btn-outline btn-sm" onclick="openPriceSettingsModal()" title="Set Meal Prices">
-                <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-                <span>Set Prices</span>
-              </button>
-              <button class="btn btn-outline btn-sm" onclick="setMenuMonthOffset(-1)">&#8592; Prev</button>
-              <button class="btn btn-secondary btn-sm" onclick="setMenuMonthOffset(0)">This Month</button>
-              <button class="btn btn-outline btn-sm" onclick="setMenuMonthOffset(1)">Next &#8594;</button>
+
+            <div class="ios-segmented-nav">
+              <button type="button" class="ios-segment-btn" id="menu-seg-prev" onclick="setMenuMonthOffset(-1)">&#8592; Prev</button>
+              <button type="button" class="ios-segment-btn active" id="menu-seg-current" onclick="setMenuMonthOffset(0)">This Month</button>
+              <button type="button" class="ios-segment-btn" id="menu-seg-next" onclick="setMenuMonthOffset(1)">Next &#8594;</button>
             </div>
           </div>
 
@@ -206,17 +211,20 @@
         <section id="view-orders" class="view-section">
           <!-- Orders Week Selector Toolbar -->
           <div class="week-selector-card">
-            <div>
-              <div class="week-title" id="orders-week-title">This Week Orders</div>
-              <div class="week-date-range" id="orders-week-range">--</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <span class="badge badge-paid" id="orders-total-weekly-count" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">0 Orders</span>
-              <div class="week-nav-group">
-                <button class="btn btn-outline btn-sm" onclick="setOrdersWeekOffset(-1)">&#8592; Prev</button>
-                <button class="btn btn-secondary btn-sm" onclick="setOrdersWeekOffset(0)">This Week</button>
-                <button class="btn btn-outline btn-sm" onclick="setOrdersWeekOffset(1)">Next &#8594;</button>
+            <div class="week-selector-header">
+              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                <div>
+                  <div class="week-title" id="orders-week-title">This Week Orders</div>
+                  <div class="week-date-range" id="orders-week-range">--</div>
+                </div>
               </div>
+              <span class="badge badge-paid" id="orders-total-weekly-count" style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Orders</span>
+            </div>
+
+            <div class="ios-segmented-nav">
+              <button type="button" class="ios-segment-btn" id="orders-seg-prev" onclick="setOrdersWeekOffset(-1)">&#8592; Prev</button>
+              <button type="button" class="ios-segment-btn active" id="orders-seg-current" onclick="setOrdersWeekOffset(0)">This Week</button>
+              <button type="button" class="ios-segment-btn" id="orders-seg-next" onclick="setOrdersWeekOffset(1)">Next &#8594;</button>
             </div>
           </div>
 
@@ -243,18 +251,22 @@
 
         <!-- 5. VIEW: KITCHEN PREPARATION -->
         <section id="view-kitchen" class="view-section">
+          <!-- Kitchen Day Selector Toolbar -->
           <div class="week-selector-card">
-            <div>
-              <div class="week-title" id="kitchen-week-title">Kitchen Prep</div>
-              <div class="week-date-range" id="kitchen-week-range">--</div>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-              <span class="badge badge-paid" id="kitchen-total-weekly-meals" style="font-size: 0.85rem; padding: 0.35rem 0.75rem;">0 Meals</span>
-              <div class="week-nav-group">
-                <button class="btn btn-outline btn-sm" onclick="setKitchenWeekOffset(-1)">&#8592; Prev</button>
-                <button class="btn btn-secondary btn-sm" onclick="setKitchenWeekOffset(0)">This Week</button>
-                <button class="btn btn-outline btn-sm" onclick="setKitchenWeekOffset(1)">Next &#8594;</button>
+            <div class="week-selector-header">
+              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+                <div>
+                  <div class="week-title" id="kitchen-week-title">Today's Kitchen Prep</div>
+                  <div class="week-date-range" id="kitchen-week-range">--</div>
+                </div>
               </div>
+              <span class="badge badge-paid" id="kitchen-total-weekly-meals" style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Meals Today</span>
+            </div>
+
+            <div class="ios-segmented-nav">
+              <button type="button" class="ios-segment-btn" id="kitchen-seg-prev" onclick="setKitchenDayOffset(-1)">&#8592; Prev</button>
+              <button type="button" class="ios-segment-btn active" id="kitchen-seg-current" onclick="setKitchenDayOffset(0)">Today</button>
+              <button type="button" class="ios-segment-btn" id="kitchen-seg-next" onclick="setKitchenDayOffset(1)">Next &#8594;</button>
             </div>
           </div>
 
@@ -388,25 +400,35 @@
               <input type="hidden" id="menu-input-price" value="12.00" />
             </div>
 
-            <div class="form-row">
-              <div class="form-group">
-                <label class="form-label">Calories (kcal)</label>
-                <input type="number" id="menu-input-cals" class="form-control" placeholder="480" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Protein (g)</label>
-                <input type="number" id="menu-input-protein" class="form-control" placeholder="35" />
-              </div>
-              <div class="form-group">
-                <label class="form-label">Carbs (g)</label>
-                <input type="number" id="menu-input-carbs" class="form-control" placeholder="42" />
-              </div>
-            </div>
+            <!-- Google Material Style Food Photo Picker -->
+            <div class="form-group" style="margin-top: 0.85rem;">
+              <label class="form-label">Food Photo</label>
+              <input type="file" id="menu-input-file" accept="image/*" onchange="handleMenuImageUpload(event)" style="display:none;" />
+              
+              <div class="material-photo-picker" id="material-photo-picker" onclick="document.getElementById('menu-input-file').click()">
+                <div class="material-photo-empty" id="material-photo-empty">
+                  <div class="material-photo-icon-wrap">
+                    <svg viewBox="0 0 24 24" class="material-photo-svg">
+                      <path d="M19 7v3h-3v2h3v3h2v-3h3v-2h-3V7h-2zm-3 3V7h-1.83l-1.83-2H8.66L6.83 7H5c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-5h-2v5H5V9h4.05l1.83-2h4.24l1.83 2H16zM11 18c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm0-8c1.65 0 3 1.35 3 3s-1.35 3-3 3-3-1.35-3-3 1.35-3 3-3z"/>
+                    </svg>
+                  </div>
+                  <div class="material-photo-label">Add Photo</div>
+                  <div class="material-photo-sub">Tap or drag image to upload</div>
+                </div>
 
-            <div class="form-group">
-              <label class="form-label">Food Photo (Auto-Compressed)</label>
-              <input type="file" id="menu-input-file" class="form-control" accept="image/*" onchange="handleMenuImageUpload(event)" />
-              <img id="menu-image-preview" style="display:none; margin-top:0.5rem; max-height:120px; border-radius:8px; object-fit:cover;" />
+                <div class="material-photo-preview-wrap" id="material-photo-preview-wrap" style="display:none;">
+                  <img id="menu-image-preview" class="material-photo-img" />
+                  <div class="material-photo-overlay">
+                    <span class="material-photo-change-btn">
+                      <svg viewBox="0 0 24 24" style="width:15px;height:15px;fill:currentColor;"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+                      Change
+                    </span>
+                    <span class="material-photo-remove-btn" onclick="removeMenuPhoto(event)">
+                      ✕ Remove
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div class="form-group">
@@ -454,6 +476,20 @@
       </div>
       <form onsubmit="saveContactSubmit(event)">
         <div class="modal-body">
+          <!-- Contact Role Selector -->
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label class="form-label">Contact Role</label>
+            <div style="display:flex; gap:0.5rem;">
+              <button type="button" id="contact-role-btn-customer" class="btn btn-sm daytype-btn daytype-active" onclick="setContactRole('customer')">
+                👤 Customer
+              </button>
+              <button type="button" id="contact-role-btn-rider" class="btn btn-sm daytype-btn" onclick="setContactRole('rider')" style="background:#eff6ff; border-color:#93c5fd; color:#1d4ed8;">
+                🛵 Delivery Rider
+              </button>
+            </div>
+            <input type="hidden" id="contact-input-role" value="customer" />
+          </div>
+
           <div class="form-group">
             <label class="form-label">Full Name *</label>
             <input type="text" id="contact-input-name" class="form-control" placeholder="e.g. Sarah Lee" required />
@@ -467,6 +503,14 @@
           <div class="form-group">
             <label class="form-label">Address</label>
             <textarea id="contact-input-address" class="form-control" rows="2" placeholder="e.g. Level 12, Tower A..."></textarea>
+          </div>
+
+          <!-- Assigned Rider (Shown for Customers) -->
+          <div class="form-group" id="contact-rider-select-group">
+            <label class="form-label">Assigned Rider (optional)</label>
+            <select id="contact-input-rider" class="form-control">
+              <option value="">-- No Rider Assigned --</option>
+            </select>
           </div>
 
           <div class="form-group">
@@ -596,6 +640,8 @@
             </div>
             <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
               📍 <span id="profile-address">--</span>
+            </div>
+            <div id="profile-rider-tag" style="font-size: 0.8rem; color: #1d4ed8; font-weight: 700; margin-top: 0.2rem; display: none;">
             </div>
             <div style="font-size: 0.775rem; color: #d97706; font-weight: 700; margin-top: 0.2rem;">
               Remark: <span id="profile-remark">--</span>

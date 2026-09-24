@@ -44,6 +44,16 @@ function renderMenu() {
   const titleEl = document.getElementById('menu-month-title');
   if (titleEl) titleEl.textContent = label;
 
+  // iOS Segment Active State
+  const pBtn = document.getElementById('menu-seg-prev');
+  const cBtn = document.getElementById('menu-seg-current');
+  const nBtn = document.getElementById('menu-seg-next');
+  if (pBtn && cBtn && nBtn) {
+    pBtn.classList.toggle('active', menuMonthOffset < 0);
+    cBtn.classList.toggle('active', menuMonthOffset === 0);
+    nBtn.classList.toggle('active', menuMonthOffset > 0);
+  }
+
   const container = document.getElementById('menu-calendar-grid');
   if (!container) return;
 
@@ -234,22 +244,29 @@ function populateMenuFormData(dateStr, dayName) {
   const priceInputEl = document.getElementById('menu-input-price');
   if (priceInputEl) priceInputEl.value = pricing.standard;
 
-  document.getElementById('menu-input-cals').value         = existing ? (existing.calories     || '') : '';
-  document.getElementById('menu-input-protein').value      = existing ? (existing.protein      || '') : '';
-  document.getElementById('menu-input-carbs').value        = existing ? (existing.carbs        || '') : '';
   document.getElementById('menu-input-desc').value         = existing ? (existing.description  || '') : '';
   document.getElementById('menu-input-remark').value       = existing ? (existing.remark       || '') : '';
   document.getElementById('menu-input-available').checked  = existing ? (existing.available !== false) : true;
   document.getElementById('menu-input-holiday-note').value = existing ? (existing.holidayNote  || '') : '';
 
-  const imgPreview = document.getElementById('menu-image-preview');
+  // Reset file input
+  const fileInput = document.getElementById('menu-input-file');
+  if (fileInput) fileInput.value = '';
+
+  const imgPreview  = document.getElementById('menu-image-preview');
+  const emptyWrap   = document.getElementById('material-photo-empty');
+  const previewWrap = document.getElementById('material-photo-preview-wrap');
+
   if (existing && existing.image) {
-    imgPreview.src = existing.image;
-    imgPreview.style.display = 'block';
+    if (imgPreview) imgPreview.src = existing.image;
+    if (emptyWrap) emptyWrap.style.display = 'none';
+    if (previewWrap) previewWrap.style.display = 'block';
     currentCompressedBase64 = existing.image;
   } else {
-    imgPreview.src = '';
-    imgPreview.style.display = 'none';
+    if (imgPreview) imgPreview.src = '';
+    if (emptyWrap) emptyWrap.style.display = 'flex';
+    if (previewWrap) previewWrap.style.display = 'none';
+    currentCompressedBase64 = null;
   }
 
   setMenuDayType(dayType);  // sets toggle + shows/hides sections
@@ -284,22 +301,41 @@ function closeEditMenuModal() {
 }
 
 /* ─────────────────────────────────────────
-   IMAGE UPLOAD
+   IMAGE UPLOAD & REMOVE
 ───────────────────────────────────────── */
 async function handleMenuImageUpload(event) {
   const file = event.target.files[0];
   if (!file) return;
   try {
-    const previewEl = document.getElementById('menu-image-preview');
-    previewEl.style.opacity = '0.4';
+    const previewEl   = document.getElementById('menu-image-preview');
+    const emptyWrap   = document.getElementById('material-photo-empty');
+    const previewWrap = document.getElementById('material-photo-preview-wrap');
+    
+    if (previewEl) previewEl.style.opacity = '0.4';
     const compressed = await compressImage(file, 500, 500, 0.7);
     currentCompressedBase64 = compressed;
-    previewEl.src = compressed;
-    previewEl.style.display = 'block';
-    previewEl.style.opacity = '1';
+    if (previewEl) {
+      previewEl.src = compressed;
+      previewEl.style.opacity = '1';
+    }
+    if (emptyWrap) emptyWrap.style.display = 'none';
+    if (previewWrap) previewWrap.style.display = 'block';
   } catch (err) {
     alert('Failed to compress image: ' + err.message);
   }
+}
+
+function removeMenuPhoto(event) {
+  if (event) event.stopPropagation();
+  currentCompressedBase64 = null;
+  const fileInput = document.getElementById('menu-input-file');
+  if (fileInput) fileInput.value = '';
+  const imgPreview = document.getElementById('menu-image-preview');
+  if (imgPreview) imgPreview.src = '';
+  const emptyWrap   = document.getElementById('material-photo-empty');
+  const previewWrap = document.getElementById('material-photo-preview-wrap');
+  if (emptyWrap) emptyWrap.style.display = 'flex';
+  if (previewWrap) previewWrap.style.display = 'none';
 }
 
 /* ─────────────────────────────────────────
@@ -342,9 +378,6 @@ async function saveMenuSubmit(event) {
       foodName:    foodName,
       price:       pricing.standard,
       priceSmall:  pricing.small,
-      calories:    parseInt(document.getElementById('menu-input-cals').value)    || 0,
-      protein:     parseInt(document.getElementById('menu-input-protein').value) || 0,
-      carbs:       parseInt(document.getElementById('menu-input-carbs').value)   || 0,
       description: document.getElementById('menu-input-desc').value.trim(),
       remark:      document.getElementById('menu-input-remark').value.trim(),
       available:   document.getElementById('menu-input-available').checked,

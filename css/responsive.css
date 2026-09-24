@@ -153,13 +153,35 @@ html, body, #app-container, .main-wrapper {
     display: flex !important;
   }
 
-  /* ── Week/month selector card ── */
+  /* ── Week/month selector card (Mobile iOS Segmented Style) ── */
   .week-selector-card {
+    display: flex;
     flex-direction: column;
     align-items: stretch;
-    gap: 0.6rem;
+    gap: 0.65rem;
     padding: 0.75rem 0.85rem;
-    border-radius: var(--radius-md);
+    border-radius: var(--radius-lg);
+    background: var(--bg-surface);
+  }
+
+  .week-selector-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .ios-segmented-nav {
+    display: flex;
+    width: 100%;
+    min-width: 0;
+    margin-top: 0.15rem;
+  }
+
+  .ios-segment-btn {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.78rem;
   }
 
   .week-nav-group {

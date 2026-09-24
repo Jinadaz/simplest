@@ -50,6 +50,16 @@ function renderOrders() {
   if (weekTitleEl) weekTitleEl.textContent = labelText;
   if (weekRangeEl) weekRangeEl.textContent = `${weekDays[0].formatted} — ${weekDays[4].formatted}`;
 
+  // iOS Segment Active State
+  const pBtn = document.getElementById('orders-seg-prev');
+  const cBtn = document.getElementById('orders-seg-current');
+  const nBtn = document.getElementById('orders-seg-next');
+  if (pBtn && cBtn && nBtn) {
+    pBtn.classList.toggle('active', ordersWeekOffset < 0);
+    cBtn.classList.toggle('active', ordersWeekOffset === 0);
+    nBtn.classList.toggle('active', ordersWeekOffset > 0);
+  }
+
   // Render Day + Date Filter Pills dynamically
   const pillsContainer = document.getElementById('order-day-filter-pills');
   if (pillsContainer) {
