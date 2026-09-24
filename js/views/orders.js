@@ -205,9 +205,11 @@ async function togglePaymentStatusAction(orderId, currentStatus) {
 }
 
 async function deleteOrderAction(orderId) {
-  if (confirm('Are you sure you want to delete this order?')) {
+  const confirmed = await showMaterialConfirm('Delete Order', 'Are you sure you want to delete this order? This action cannot be undone.', 'Delete', true);
+  if (confirmed) {
     await dbDeleteOrder(orderId);
     renderOrders();
+    showMaterialToast('Order deleted successfully', 'info');
   }
 }
 
@@ -523,7 +525,7 @@ async function saveOrderSubmit(event) {
   }
 
   if (!contactId) {
-    alert('Please enter or select a customer name');
+    showMaterialToast('Please enter or select a customer name', 'warning');
     document.getElementById('order-input-customer-search').focus();
     return;
   }
@@ -536,7 +538,7 @@ async function saveOrderSubmit(event) {
     if (weekDays && weekDays.length > 0) {
       selectedDates.push(weekDays[0].dateStr);
     } else {
-      alert('Please select at least one meal date card');
+      showMaterialToast('Please select at least one meal date card', 'warning');
       return;
     }
   }

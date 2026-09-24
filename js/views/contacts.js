@@ -234,7 +234,7 @@ async function saveContactSubmit(event) {
   const role = document.getElementById('contact-input-role').value;
 
   if (!name || !phone) {
-    alert('Name and phone number are required');
+    showMaterialToast('Name and phone number are required', 'warning');
     return;
   }
 
@@ -271,9 +271,11 @@ async function saveContactSubmit(event) {
 }
 
 async function deleteContactAction(contactId) {
-  if (confirm('Are you sure you want to delete this contact?')) {
+  const confirmed = await showMaterialConfirm('Delete Contact', 'Are you sure you want to delete this contact? This action cannot be undone.', 'Delete', true);
+  if (confirmed) {
     await dbDeleteContact(contactId);
     renderContacts();
+    showMaterialToast('Contact deleted successfully', 'info');
   }
 }
 

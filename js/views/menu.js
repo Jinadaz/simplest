@@ -235,18 +235,11 @@ function populateMenuFormData(dateStr, dayName) {
 
   document.getElementById('menu-input-foodName').value     = existing ? (existing.foodName    || '') : '';
   
-  // Display current unified pricing
-  const pricing = dbGetPricing();
-  const stdPriceEl = document.getElementById('menu-modal-price-std');
-  const smlPriceEl = document.getElementById('menu-modal-price-sml');
-  if (stdPriceEl) stdPriceEl.textContent = `🍱 Standard: ${formatRM(pricing.standard)}`;
-  if (smlPriceEl) smlPriceEl.textContent = `🥣 Small: ${formatRM(pricing.small)}`;
-  const priceInputEl = document.getElementById('menu-input-price');
-  if (priceInputEl) priceInputEl.value = pricing.standard;
-
   document.getElementById('menu-input-desc').value         = existing ? (existing.description  || '') : '';
-  document.getElementById('menu-input-remark').value       = existing ? (existing.remark       || '') : '';
-  document.getElementById('menu-input-available').checked  = existing ? (existing.available !== false) : true;
+  const remarkInputEl = document.getElementById('menu-input-remark');
+  if (remarkInputEl) remarkInputEl.value = existing ? (existing.remark || '') : '';
+  const availInputEl = document.getElementById('menu-input-available');
+  if (availInputEl) availInputEl.checked = existing ? (existing.available !== false) : true;
   document.getElementById('menu-input-holiday-note').value = existing ? (existing.holidayNote  || '') : '';
 
   // Reset file input
@@ -321,7 +314,7 @@ async function handleMenuImageUpload(event) {
     if (emptyWrap) emptyWrap.style.display = 'none';
     if (previewWrap) previewWrap.style.display = 'block';
   } catch (err) {
-    alert('Failed to compress image: ' + err.message);
+    showMaterialToast('Failed to compress image: ' + err.message, 'error');
   }
 }
 
@@ -346,7 +339,7 @@ async function saveMenuSubmit(event) {
   
   const chosenDate = document.getElementById('menu-input-date').value || editingMenuDate;
   if (!chosenDate) {
-    alert('Please select a menu date');
+    showMaterialToast('Please select a menu date', 'warning');
     return;
   }
 
@@ -369,9 +362,15 @@ async function saveMenuSubmit(event) {
     const pricing  = dbGetPricing();
 
     if (!foodName) {
-      alert('Please provide food name');
+      showMaterialToast('Please provide food name', 'warning');
       return;
     }
+
+    const remarkInputEl = document.getElementById('menu-input-remark');
+    const remarkVal = remarkInputEl ? remarkInputEl.value.trim() : (existing ? (existing.remark || '') : '');
+
+    const availInputEl = document.getElementById('menu-input-available');
+    const availVal = availInputEl ? availInputEl.checked : true;
 
     menuData = {
       ...menuData,
@@ -379,8 +378,8 @@ async function saveMenuSubmit(event) {
       price:       pricing.standard,
       priceSmall:  pricing.small,
       description: document.getElementById('menu-input-desc').value.trim(),
-      remark:      document.getElementById('menu-input-remark').value.trim(),
-      available:   document.getElementById('menu-input-available').checked,
+      remark:      remarkVal,
+      available:   availVal,
       image:       currentCompressedBase64 || (existing ? existing.image : '')
     };
   }
@@ -426,7 +425,7 @@ async function savePriceSettingsSubmit(event) {
   const smlVal = parseFloat(document.getElementById('pricing-input-small').value);
 
   if (isNaN(stdVal) || stdVal < 0 || isNaN(smlVal) || smlVal < 0) {
-    alert('Please enter valid prices for both Standard and Small portions');
+    showMaterialToast('Please enter valid prices for both portion sizes', 'warning');
     return;
   }
 

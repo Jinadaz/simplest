@@ -53,8 +53,8 @@
           <span>Orders</span>
         </div>
         <div class="nav-item" data-view="kitchen">
-          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 10.58 0A4 4 0 0 1 18 13.87V21H6z"/><line x1="6" x2="18" y1="17" y2="17"/></svg>
-          <span>Kitchen</span>
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.4 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7c0 .6.4 1 1 1h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>
+          <span>Grab Dispatch</span>
         </div>
       </nav>
 
@@ -90,9 +90,9 @@
             <span>Dark</span>
           </button>
 
-          <button class="btn btn-primary btn-sm" onclick="openAddOrderModal()">
+          <button class="btn btn-primary btn-sm" onclick="openAddOrderModal()" title="Add New Order">
             <svg class="svg-icon sm" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            New Order
+            <span>New Order</span>
           </button>
         </div>
       </header>
@@ -243,18 +243,18 @@
         </section>
 
 
-        <!-- 5. VIEW: KITCHEN PREPARATION -->
+        <!-- 5. VIEW: GRAB DISPATCH HUB (formerly kitchen) -->
         <section id="view-kitchen" class="view-section">
-          <!-- Kitchen Day Selector Toolbar -->
+          <!-- Grab Dispatch Selector Toolbar -->
           <div class="week-selector-card">
             <div class="week-selector-header">
               <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 <div>
-                  <div class="week-title" id="kitchen-week-title">Today's Kitchen Prep</div>
+                  <div class="week-title" id="kitchen-week-title">🛵 Grab Dispatch Hub</div>
                   <div class="week-date-range" id="kitchen-week-range">--</div>
                 </div>
               </div>
-              <span class="badge badge-paid" id="kitchen-total-weekly-meals" style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Meals Today</span>
+              <span class="badge badge-paid" id="kitchen-total-weekly-meals" style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Deliveries Today</span>
             </div>
 
             <div class="ios-segmented-nav">
@@ -264,7 +264,7 @@
             </div>
           </div>
 
-          <div class="kitchen-grid" id="kitchen-cards-container">
+          <div class="grab-dispatch-grid" id="kitchen-cards-container" style="width: 100%;">
             <!-- Rendered dynamically by js/views/kitchen.js -->
           </div>
         </section>
@@ -292,8 +292,8 @@
           <span>Menu</span>
         </div>
         <div class="bottom-nav-item" data-view="kitchen">
-          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M6 13.87A4 4 0 0 1 7.41 6a5.11 5.11 0 0 1 10.58 0A4 4 0 0 1 18 13.87V21H6z"/><line x1="6" x2="18" y1="17" y2="17"/></svg>
-          <span>Kitchen</span>
+          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.4 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7c0 .6.4 1 1 1h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>
+          <span>Grab</span>
         </div>
       </div>
     </nav>
@@ -379,23 +379,8 @@
               <input type="text" id="menu-input-foodName" class="form-control" placeholder="e.g. Grilled Chicken Rice Bowl" />
             </div>
 
-            <!-- Unified Price Notice & Setting Shortcut -->
-            <div class="unified-price-box">
-              <div class="unified-price-header">
-                <span class="unified-price-title">Unified Daily Pricing</span>
-                <button type="button" class="btn btn-outline btn-sm" onclick="openPriceSettingsModal()" style="padding: 0.2rem 0.55rem; font-size: 0.725rem;">
-                  ⚙️ Change Prices
-                </button>
-              </div>
-              <div class="unified-price-tags">
-                <span class="portion-badge portion-standard" id="menu-modal-price-std">🍱 Standard: RM 12.00</span>
-                <span class="portion-badge portion-small" id="menu-modal-price-sml">🥣 Small: RM 9.00</span>
-              </div>
-              <input type="hidden" id="menu-input-price" value="12.00" />
-            </div>
-
             <!-- Google Material Style Food Photo Picker -->
-            <div class="form-group" style="margin-top: 0.85rem;">
+            <div class="form-group">
               <label class="form-label">Food Photo</label>
               <input type="file" id="menu-input-file" accept="image/*" onchange="handleMenuImageUpload(event)" style="display:none;" />
               
@@ -428,18 +413,6 @@
             <div class="form-group">
               <label class="form-label">Description</label>
               <textarea id="menu-input-desc" class="form-control" rows="2" placeholder="e.g. Grilled chicken with brown rice..."></textarea>
-            </div>
-
-            <div class="form-row" style="align-items: center;">
-              <div class="form-group">
-                <label class="form-label">Remark Tag</label>
-                <input type="text" id="menu-input-remark" class="form-control" placeholder="e.g. Best Seller" />
-              </div>
-              <div class="form-group" style="padding-top: 1.25rem;">
-                <label style="display:flex; align-items:center; gap:0.4rem; font-weight:700; cursor:pointer; font-size:0.85rem;">
-                  <input type="checkbox" id="menu-input-available" checked /> Available
-                </label>
-              </div>
             </div>
           </div>
 
@@ -730,6 +703,32 @@
         <path class="clean-checkmark-check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
       </svg>
       <div class="clean-checkmark-text" id="clean-checkmark-text">Success</div>
+    </div>
+  </div>
+
+  <!-- Google Material UI Floating Toast / Snackbar -->
+  <div id="material-snackbar" class="material-snackbar">
+    <div class="material-snackbar-icon" id="material-snackbar-icon">⚠️</div>
+    <div class="material-snackbar-text" id="material-snackbar-text">Notification message</div>
+    <button type="button" class="material-snackbar-close" onclick="hideMaterialToast()">✕</button>
+  </div>
+
+  <!-- Google Material UI Confirmation Dialog Modal -->
+  <div id="material-confirm-modal" class="modal-overlay">
+    <div class="modal-card material-confirm-card" style="max-width: 420px; padding: 0; overflow: hidden; border-radius: 16px;">
+      <div style="padding: 1.35rem 1.25rem 0.85rem 1.25rem; display: flex; align-items: flex-start; gap: 0.85rem;">
+        <div id="material-confirm-icon-wrap" style="width: 44px; height: 44px; border-radius: 50%; background: #fef2f2; color: #ef4444; display: flex; align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;">
+          🗑️
+        </div>
+        <div>
+          <h3 id="material-confirm-title" style="font-size: 1.05rem; font-weight: 800; color: var(--text-main); margin-bottom: 0.25rem;">Confirm Action</h3>
+          <p id="material-confirm-message" style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.4; margin: 0;">Are you sure you want to proceed?</p>
+        </div>
+      </div>
+      <div style="padding: 0.85rem 1.25rem; background: var(--bg-surface); display: flex; align-items: center; justify-content: flex-end; gap: 0.65rem; border-top: 1px solid var(--border-light);">
+        <button type="button" class="btn btn-outline btn-sm" id="material-confirm-cancel-btn" style="padding: 0.45rem 1rem; border-radius: 20px;">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="material-confirm-action-btn" style="padding: 0.45rem 1rem; border-radius: 20px; background: #ef4444; border-color: #ef4444;">Confirm</button>
+      </div>
     </div>
   </div>
 

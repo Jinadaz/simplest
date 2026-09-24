@@ -278,8 +278,15 @@ html, body, #app-container, .main-wrapper {
     gap: 0.65rem;
   }
 
-  #price-settings-header-btn span {
-    display: none;
+  /* Hide text labels on mobile header buttons (icon/logo only display) */
+  .header-actions .btn span {
+    display: none !important;
+  }
+
+  .header-actions .btn {
+    padding: 0.35rem 0.55rem !important;
+    min-width: 36px;
+    justify-content: center;
   }
 
   /* Hide food name on mobile meal date selection cards */

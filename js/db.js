@@ -397,6 +397,25 @@ async function dbUpdatePaymentStatus(orderId, paymentStatus) {
 // Backwards-compatible alias
 const dbUpdateOrderStatus = dbUpdatePaymentStatus;
 
+async function dbToggleOrderDispatchStatus(orderId) {
+  if (!cachedOrders[orderId]) return false;
+  const current = cachedOrders[orderId].dispatched === true;
+  const nextVal = !current;
+
+  cachedOrders[orderId] = {
+    ...cachedOrders[orderId],
+    dispatched: nextVal
+  };
+  notifyDataChanged();
+
+  if (isFirebaseLive && db) {
+    await db.ref(`orders/${orderId}`).update({ dispatched: nextVal });
+  } else {
+    saveToLocalStorage();
+  }
+  return nextVal;
+}
+
 async function dbDeleteOrder(orderId) {
   delete cachedOrders[orderId];
   notifyDataChanged();

@@ -138,3 +138,114 @@ function showCleanCheckmark(text = 'Saved') {
   }, 1150);
 }
 
+/* ==========================================================================
+   Google Material UI Toast / Snackbar Handler
+   ========================================================================== */
+let materialToastTimeout = null;
+
+function showMaterialToast(message, type = 'warning') {
+  const snackbar = document.getElementById('material-snackbar');
+  const textEl = document.getElementById('material-snackbar-text');
+  const iconEl = document.getElementById('material-snackbar-icon');
+  if (!snackbar) {
+    alert(message);
+    return;
+  }
+
+  if (textEl) textEl.textContent = message;
+
+  if (iconEl) {
+    if (type === 'error' || type === 'danger') {
+      iconEl.textContent = '❌';
+    } else if (type === 'info') {
+      iconEl.textContent = 'ℹ️';
+    } else {
+      iconEl.textContent = '⚠️';
+    }
+  }
+
+  // Trigger light mobile vibration
+  if (typeof triggerHapticFeedback === 'function') {
+    triggerHapticFeedback('medium');
+  }
+
+  snackbar.classList.add('active');
+
+  if (materialToastTimeout) {
+    clearTimeout(materialToastTimeout);
+  }
+
+  materialToastTimeout = setTimeout(() => {
+    hideMaterialToast();
+  }, 3200);
+}
+
+function hideMaterialToast() {
+  const snackbar = document.getElementById('material-snackbar');
+  if (snackbar) snackbar.classList.remove('active');
+}
+
+/* ==========================================================================
+   Google Material UI Confirmation Dialog Handler (Promise-based)
+   ========================================================================== */
+function showMaterialConfirm(title, message, confirmText = 'Delete', isDanger = true) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById('material-confirm-modal');
+    const titleEl = document.getElementById('material-confirm-title');
+    const msgEl = document.getElementById('material-confirm-message');
+    const iconWrap = document.getElementById('material-confirm-icon-wrap');
+    const cancelBtn = document.getElementById('material-confirm-cancel-btn');
+    const actionBtn = document.getElementById('material-confirm-action-btn');
+
+    if (!modal) {
+      resolve(window.confirm(`${title}\n\n${message}`));
+      return;
+    }
+
+    if (titleEl) titleEl.textContent = title;
+    if (msgEl) msgEl.textContent = message;
+    if (actionBtn) {
+      actionBtn.textContent = confirmText;
+      if (isDanger) {
+        actionBtn.style.background = '#ef4444';
+        actionBtn.style.borderColor = '#ef4444';
+      } else {
+        actionBtn.style.background = 'var(--primary-accent)';
+        actionBtn.style.borderColor = 'var(--primary-accent)';
+      }
+    }
+    if (iconWrap) {
+      iconWrap.textContent = isDanger ? '🗑️' : '❓';
+      iconWrap.style.background = isDanger ? '#fef2f2' : '#eff6ff';
+      iconWrap.style.color = isDanger ? '#ef4444' : '#3b82f6';
+    }
+
+    const cleanup = () => {
+      modal.classList.remove('active');
+      cancelBtn.onclick = null;
+      actionBtn.onclick = null;
+      modal.onclick = null;
+    };
+
+    cancelBtn.onclick = () => {
+      cleanup();
+      resolve(false);
+    };
+
+    actionBtn.onclick = () => {
+      cleanup();
+      resolve(true);
+    };
+
+    modal.onclick = (e) => {
+      if (e.target === modal) {
+        cleanup();
+        resolve(false);
+      }
+    };
+
+    modal.classList.add('active');
+  });
+}
+
+
