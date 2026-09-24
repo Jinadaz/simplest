@@ -141,22 +141,28 @@
         </section>
 
 
-        <!-- 2. VIEW: WEEKLY MENU -->
+        <!-- 2. VIEW: MONTHLY MENU CALENDAR -->
         <section id="view-menu" class="view-section">
+          <!-- Month Navigation Toolbar -->
           <div class="week-selector-card">
-            <div>
-              <div class="week-title" id="menu-week-title">Weekly Menu</div>
-              <div class="week-date-range" id="menu-week-range">--</div>
+            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+              <div>
+                <div class="week-title" id="menu-month-title">Monthly Menu</div>
+              </div>
+              <span class="badge badge-confirmed" id="menu-month-summary" style="font-size:0.8rem; padding:0.3rem 0.7rem;">-- days set</span>
             </div>
             <div class="week-nav-group">
-              <button class="btn btn-outline btn-sm" onclick="setMenuWeekOffset(-1)">Previous Week</button>
-              <button class="btn btn-secondary btn-sm" onclick="setMenuWeekOffset(0)">This Week</button>
-              <button class="btn btn-outline btn-sm" onclick="setMenuWeekOffset(1)">Next Week</button>
+              <button class="btn btn-outline btn-sm" onclick="setMenuMonthOffset(-1)">&#8592; Prev</button>
+              <button class="btn btn-secondary btn-sm" onclick="setMenuMonthOffset(0)">This Month</button>
+              <button class="btn btn-outline btn-sm" onclick="setMenuMonthOffset(1)">Next &#8594;</button>
             </div>
           </div>
 
-          <div id="menu-list-container">
-            <!-- Rendered dynamically by js/views/menu.js -->
+          <!-- Calendar Grid -->
+          <div class="menu-calendar-wrapper">
+            <div id="menu-calendar-grid">
+              <!-- Rendered dynamically by js/views/menu.js -->
+            </div>
           </div>
         </section>
 
@@ -328,55 +334,93 @@
       </div>
       <form onsubmit="saveMenuSubmit(event)">
         <div class="modal-body">
-          <div class="form-group">
-            <label class="form-label">Food Name *</label>
-            <input type="text" id="menu-input-foodName" class="form-control" placeholder="e.g. Grilled Chicken Rice Bowl" required />
+
+          <!-- Day Type Selector -->
+          <div class="form-group" style="margin-bottom:1.1rem;">
+            <label class="form-label">Day Type</label>
+            <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+              <button type="button" id="daytype-btn-normal"
+                class="btn btn-sm daytype-btn daytype-active"
+                onclick="setMenuDayType('normal')">
+                🍱 Normal
+              </button>
+              <button type="button" id="daytype-btn-holiday"
+                class="btn btn-sm daytype-btn"
+                onclick="setMenuDayType('holiday')"
+                style="background:#fff7ed; border-color:#fdba74; color:#c2410c;">
+                🎉 Public Holiday
+              </button>
+              <button type="button" id="daytype-btn-closed"
+                class="btn btn-sm daytype-btn"
+                onclick="setMenuDayType('closed')"
+                style="background:#fef2f2; border-color:#fca5a5; color:#b91c1c;">
+                🔒 Closed
+              </button>
+            </div>
+            <input type="hidden" id="menu-input-daytype" value="normal" />
           </div>
 
-          <div class="form-row">
+          <!-- Food Details (hidden when PH or Closed) -->
+          <div id="menu-food-details">
             <div class="form-group">
-              <label class="form-label">Price (RM) *</label>
-              <input type="number" step="0.50" id="menu-input-price" class="form-control" placeholder="12.00" required />
+              <label class="form-label">Food Name *</label>
+              <input type="text" id="menu-input-foodName" class="form-control" placeholder="e.g. Grilled Chicken Rice Bowl" />
             </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Price (RM) *</label>
+                <input type="number" step="0.50" id="menu-input-price" class="form-control" placeholder="12.00" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Calories (kcal)</label>
+                <input type="number" id="menu-input-cals" class="form-control" placeholder="480" />
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">Protein (g)</label>
+                <input type="number" id="menu-input-protein" class="form-control" placeholder="35" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">Carbs (g)</label>
+                <input type="number" id="menu-input-carbs" class="form-control" placeholder="42" />
+              </div>
+            </div>
+
             <div class="form-group">
-              <label class="form-label">Calories (kcal)</label>
-              <input type="number" id="menu-input-cals" class="form-control" placeholder="480" />
+              <label class="form-label">Food Photo (Auto-Compressed)</label>
+              <input type="file" id="menu-input-file" class="form-control" accept="image/*" onchange="handleMenuImageUpload(event)" />
+              <img id="menu-image-preview" style="display:none; margin-top:0.5rem; max-height:120px; border-radius:8px; object-fit:cover;" />
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <textarea id="menu-input-desc" class="form-control" rows="2" placeholder="e.g. Grilled chicken with brown rice..."></textarea>
+            </div>
+
+            <div class="form-row" style="align-items: center;">
+              <div class="form-group">
+                <label class="form-label">Remark Tag</label>
+                <input type="text" id="menu-input-remark" class="form-control" placeholder="e.g. Best Seller" />
+              </div>
+              <div class="form-group" style="padding-top: 1.25rem;">
+                <label style="display:flex; align-items:center; gap:0.4rem; font-weight:700; cursor:pointer; font-size:0.85rem;">
+                  <input type="checkbox" id="menu-input-available" checked /> Available
+                </label>
+              </div>
             </div>
           </div>
 
-          <div class="form-row">
+          <!-- Holiday / Closed Note field -->
+          <div id="menu-holiday-note-group" style="display:none;">
             <div class="form-group">
-              <label class="form-label">Protein (g)</label>
-              <input type="number" id="menu-input-protein" class="form-control" placeholder="35" />
-            </div>
-            <div class="form-group">
-              <label class="form-label">Carbs (g)</label>
-              <input type="number" id="menu-input-carbs" class="form-control" placeholder="42" />
+              <label class="form-label">Note (optional)</label>
+              <input type="text" id="menu-input-holiday-note" class="form-control" placeholder="e.g. Hari Raya Aidilfitri / Maintenance Day" />
             </div>
           </div>
 
-          <div class="form-group">
-            <label class="form-label">Food Photo (Auto-Compressed)</label>
-            <input type="file" id="menu-input-file" class="form-control" accept="image/*" onchange="handleMenuImageUpload(event)" />
-            <img id="menu-image-preview" style="display:none; margin-top:0.5rem; max-height:120px; border-radius:8px; object-fit:cover;" />
-          </div>
-
-          <div class="form-group">
-            <label class="form-label">Description</label>
-            <textarea id="menu-input-desc" class="form-control" rows="2" placeholder="e.g. Grilled chicken with brown rice..."></textarea>
-          </div>
-
-          <div class="form-row" style="align-items: center;">
-            <div class="form-group">
-              <label class="form-label">Remark Tag</label>
-              <input type="text" id="menu-input-remark" class="form-control" placeholder="e.g. Best Seller" />
-            </div>
-            <div class="form-group" style="padding-top: 1.25rem;">
-              <label style="display:flex; align-items:center; gap:0.4rem; font-weight:700; cursor:pointer; font-size:0.85rem;">
-                <input type="checkbox" id="menu-input-available" checked /> Available
-              </label>
-            </div>
-          </div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline" onclick="closeEditMenuModal()">Cancel</button>

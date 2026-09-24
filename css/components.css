@@ -863,3 +863,501 @@
 [data-theme="dark"] .btn-primary:hover {
   background: #34d399;
 }
+
+/* ═══════════════════════════════════════
+   DAY TYPE TOGGLE BUTTONS (Edit Menu Modal)
+═══════════════════════════════════════ */
+
+.daytype-btn {
+  border: 1.5px solid var(--border-color);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+  font-weight: 700;
+  transition: all 0.15s ease;
+}
+
+.daytype-btn.daytype-active {
+  box-shadow: 0 0 0 2px var(--primary-accent);
+  font-weight: 800;
+}
+
+#daytype-btn-normal.daytype-active {
+  background: var(--primary-light);
+  border-color: var(--primary-accent);
+  color: var(--primary-dark);
+}
+
+#daytype-btn-holiday.daytype-active {
+  background: #fff7ed;
+  border-color: #f97316;
+  color: #c2410c;
+  box-shadow: 0 0 0 2px #f97316;
+}
+
+#daytype-btn-closed.daytype-active {
+  background: #fef2f2;
+  border-color: #ef4444;
+  color: #b91c1c;
+  box-shadow: 0 0 0 2px #ef4444;
+}
+
+/* ═══════════════════════════════════════
+   MONTHLY MENU CALENDAR
+═══════════════════════════════════════ */
+
+.menu-calendar-wrapper {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+/* Day-of-week header */
+.cal-header-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--primary-dark);
+}
+
+.cal-dow-cell {
+  padding: 0.55rem 0.25rem;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  color: rgba(255,255,255,0.9);
+  text-transform: uppercase;
+}
+
+.cal-dow-cell.cal-weekend-hdr {
+  color: rgba(255,255,255,0.4);
+}
+
+/* Calendar body grid */
+.cal-body {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 1px;
+  background: var(--border-color);
+}
+
+/* Individual day cells — locked square */
+.cal-day-cell {
+  background: var(--bg-surface);
+  aspect-ratio: 1 / 1;
+  padding: 0.45rem 0.4rem 0.4rem;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition: background 0.15s ease;
+  overflow: hidden;          /* keeps the square even if content overflows */
+}
+
+/* Weekday (no menu yet) – clickable */
+.cal-no-menu {
+  cursor: pointer;
+}
+.cal-no-menu:hover {
+  background: var(--primary-light);
+}
+
+/* Weekday with menu – clickable */
+.cal-has-menu {
+  cursor: pointer;
+}
+.cal-has-menu:hover {
+  background: #f0fdf8;
+}
+
+/* Weekend */
+.cal-weekend {
+  background: var(--border-light);
+  cursor: default;
+}
+
+/* Empty filler cells */
+.cal-empty {
+  background: var(--border-light);
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* TODAY highlight */
+.cal-today {
+  outline: 2.5px solid var(--primary-accent);
+  outline-offset: -2.5px;
+  background: var(--primary-light) !important;
+}
+
+/* Day number badge */
+.cal-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+  flex-shrink: 0;
+}
+
+.cal-today .cal-day-num {
+  background: var(--primary-accent);
+  color: #fff;
+}
+
+/* Cell content wrapper */
+.cal-day-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;        /* center food thumb + name + price */
+  justify-content: center;
+  gap: 0.15rem;
+  overflow: hidden;
+}
+
+/* Food thumbnail — compact fixed square, centered */
+.cal-food-thumb {
+  width: 52px;
+  height: 52px;
+  border-radius: 6px;
+  background-size: cover;
+  background-position: center;
+  background-color: var(--border-light);
+  flex-shrink: 0;
+  align-self: center;
+  margin-bottom: 0.15rem;
+  overflow: hidden;
+}
+
+.cal-food-no-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-light);
+}
+
+/* Food name — single line only in calendar cells */
+.cal-food-name {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+}
+
+/* Food price */
+.cal-food-price {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--primary-accent);
+  text-align: center;
+}
+
+/* Unavailable indicator — subtle red bottom stripe on the cell (no text needed in tiny square) */
+.cal-unavail {
+  border-bottom: 3px solid #ef4444 !important;
+}
+
+/* Rest label on weekends */
+.cal-rest-label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-light);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  text-align: center;
+}
+
+/* "Set Menu" hint on empty weekdays */
+.cal-add-hint {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  flex: 1;
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-light);
+  text-align: center;
+  transition: color 0.15s;
+}
+
+.cal-no-menu:hover .cal-add-hint {
+  color: var(--primary-accent);
+}
+
+.cal-add-hint .svg-icon {
+  width: 14px;
+  height: 14px;
+}
+
+/* ─── Public Holiday cell ─── */
+.cal-public-holiday {
+  background: #fff7ed !important;
+  cursor: pointer;
+}
+.cal-public-holiday:hover {
+  background: #ffedd5 !important;
+}
+.cal-ph-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 0.2rem;
+  text-align: center;
+}
+.cal-ph-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.cal-ph-text {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #c2410c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+
+/* ─── Closed cell ─── */
+.cal-closed {
+  background: #fef2f2 !important;
+  cursor: pointer;
+}
+.cal-closed:hover {
+  background: #fee2e2 !important;
+}
+.cal-closed-label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 0.2rem;
+  text-align: center;
+}
+.cal-closed-icon {
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.cal-closed-text {
+  font-size: 0.62rem;
+  font-weight: 800;
+  color: #b91c1c;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ─── Dark mode overrides ─── */
+[data-theme="dark"] .menu-calendar-wrapper {
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+}
+
+[data-theme="dark"] .cal-body {
+  background: var(--border-color);
+}
+
+[data-theme="dark"] .cal-day-cell {
+  background: var(--bg-surface);
+}
+
+[data-theme="dark"] .cal-weekend,
+[data-theme="dark"] .cal-empty {
+  background: var(--border-light);
+}
+
+[data-theme="dark"] .cal-has-menu:hover {
+  background: rgba(16,185,129,0.08);
+}
+
+[data-theme="dark"] .cal-no-menu:hover {
+  background: rgba(16,185,129,0.06);
+}
+
+[data-theme="dark"] .cal-food-thumb {
+  background-color: var(--border-color);
+}
+
+[data-theme="dark"] .cal-public-holiday {
+  background: rgba(251,146,60,0.12) !important;
+}
+[data-theme="dark"] .cal-public-holiday:hover {
+  background: rgba(251,146,60,0.2) !important;
+}
+[data-theme="dark"] .cal-ph-text {
+  color: #fb923c;
+}
+
+[data-theme="dark"] .cal-closed {
+  background: rgba(239,68,68,0.1) !important;
+}
+[data-theme="dark"] .cal-closed:hover {
+  background: rgba(239,68,68,0.18) !important;
+}
+[data-theme="dark"] .cal-closed-text {
+  color: #fca5a5;
+}
+
+/* ─── Tablet (≤900px) ─── */
+@media (max-width: 900px) {
+  .cal-day-cell {
+    padding: 0.35rem 0.25rem;
+  }
+  .cal-food-thumb {
+    width: 44px;
+    height: 44px;
+    border-radius: 5px;
+  }
+  .cal-food-name {
+    font-size: 0.62rem;
+  }
+  .cal-food-price {
+    font-size: 0.6rem;
+  }
+  .cal-day-num {
+    width: 20px;
+    height: 20px;
+    font-size: 0.65rem;
+    margin-bottom: 0.2rem;
+  }
+  .cal-ph-icon, .cal-closed-icon {
+    font-size: 0.95rem;
+  }
+  .cal-ph-text, .cal-closed-text {
+    font-size: 0.55rem;
+  }
+  .cal-dow-cell {
+    font-size: 0.65rem;
+    padding: 0.5rem 0.1rem;
+  }
+  .cal-add-hint {
+    font-size: 0.58rem;
+  }
+  .cal-add-hint .svg-icon {
+    width: 12px;
+    height: 12px;
+  }
+}
+
+/* ─── Mobile (≤600px) ─── */
+@media (max-width: 600px) {
+
+  /* Calendar wrapper: flush to edges, no outer radius on mobile */
+  .menu-calendar-wrapper {
+    border-radius: 10px;
+    border-left: none;
+    border-right: none;
+    margin: 0 -0.75rem;   /* bleed to viewport edge */
+  }
+
+  /* DOW header: very tight */
+  .cal-dow-cell {
+    font-size: 0.55rem;
+    letter-spacing: 0;
+    padding: 0.4rem 0;
+  }
+
+  /* Cells: tight padding, keep aspect-ratio square via CSS */
+  .cal-day-cell {
+    padding: 0.25rem 0.15rem;
+  }
+
+  /* Day number: smaller circle */
+  .cal-day-num {
+    width: 17px;
+    height: 17px;
+    font-size: 0.58rem;
+    margin-bottom: 0.12rem;
+    flex-shrink: 0;
+  }
+
+  /* Food thumb: small but clear square */
+  .cal-food-thumb {
+    width: 36px;
+    height: 36px;
+    border-radius: 4px;
+    margin-bottom: 0.1rem;
+  }
+
+  /* Food name: ultra-compact */
+  .cal-food-name {
+    font-size: 0.52rem;
+    letter-spacing: -0.01em;
+  }
+
+  /* Food price: tiny green badge */
+  .cal-food-price {
+    font-size: 0.5rem;
+    font-weight: 800;
+  }
+
+  /* Holiday / Closed labels */
+  .cal-ph-icon, .cal-closed-icon {
+    font-size: 0.85rem;
+    line-height: 1;
+  }
+  .cal-ph-text, .cal-closed-text {
+    font-size: 0.48rem;
+    letter-spacing: 0;
+  }
+
+  /* Rest label */
+  .cal-rest-label {
+    font-size: 0.48rem;
+  }
+
+  /* Set Menu hint */
+  .cal-add-hint {
+    font-size: 0.46rem;
+    gap: 0.1rem;
+  }
+  .cal-add-hint .svg-icon {
+    width: 10px;
+    height: 10px;
+  }
+
+  /* Month nav toolbar: stack vertically */
+  .week-selector-card {
+    padding: 0.7rem 0.85rem;
+    gap: 0.6rem;
+  }
+  .week-nav-group .btn {
+    font-size: 0.75rem;
+    padding: 0.35rem 0.55rem;
+  }
+
+  /* Month summary pill */
+  #menu-month-summary {
+    font-size: 0.72rem !important;
+  }
+}
+
+/* ─── Very small screens (≤380px) ─── */
+@media (max-width: 380px) {
+  .cal-food-thumb {
+    width: 28px;
+    height: 28px;
+  }
+  .cal-food-name {
+    font-size: 0.44rem;
+  }
+  .cal-food-price {
+    font-size: 0.42rem;
+  }
+  .cal-dow-cell {
+    font-size: 0.48rem;
+  }
+}
