@@ -160,8 +160,10 @@ function renderMenu() {
       content = `<div class="cal-add-hint">${getSvgIcon('plus','')} Set Menu</div>`;
     }
 
+    const titleAttr = (data && data.foodName) ? `title="${String(data.foodName).replace(/"/g, '&quot;')}"` : '';
+
     html += `
-      <div class="${cellClass}" ${clickHandler}>
+      <div class="${cellClass}" ${clickHandler} ${titleAttr}>
         ${dayNum}
         <div class="cal-day-content">
           ${content}
