@@ -117,7 +117,7 @@ function switchView(viewName) {
     'menu': 'Weekly Menu',
     'contacts': 'Contacts Management',
     'orders': 'Orders Management',
-    'kitchen': 'Kitchen Preparation'
+    'kitchen': 'Rider Dispatch Hub'
   };
 
   const headerTitleEl = document.getElementById('main-header-title');

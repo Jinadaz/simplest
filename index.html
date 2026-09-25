@@ -53,8 +53,8 @@
           <span>Orders</span>
         </div>
         <div class="nav-item" data-view="kitchen">
-          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.4 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7c0 .6.4 1 1 1h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>
-          <span>Grab Dispatch</span>
+          <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="M12 18H8l2-7h4l2 4h3"/><path d="M13 7h-2l-1 4"/><circle cx="13" cy="4" r="1.5"/></svg>
+          <span>Rider Dispatch</span>
         </div>
       </nav>
 
@@ -117,32 +117,13 @@
             </div>
           </div>
 
-          <!-- Summary Statistics Grid (Compact 1-row) -->
-          <div class="stats-grid">
-            <div class="stat-card">
-              <div>
-                <div class="stat-label">Today's Orders</div>
-                <div class="stat-value" id="dash-stat-orders">0</div>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <div>
-                <div class="stat-label">Today's Meals</div>
-                <div class="stat-value" id="dash-stat-meals">0</div>
-              </div>
-            </div>
-
-            <div class="stat-card">
-              <div>
-                <div class="stat-label">Today's Revenue</div>
-                <div class="stat-value" id="dash-stat-revenue" style="color: var(--primary-accent);">RM 0.00</div>
-              </div>
-            </div>
+          <!-- Summary Statistics Grid (Command Center Top 4 KPIs) -->
+          <div class="command-kpi-grid" id="dashboard-kpi-grid">
+            <!-- Rendered dynamically by js/views/dashboard.js -->
           </div>
 
-          <!-- Daily Menu Food Card Container -->
-          <div class="daily-cards-grid single-day-grid" id="dashboard-daily-grid">
+          <!-- Command Center Main Cockpit Grid (Dual-Column Desk & Responsive Stack) -->
+          <div class="command-center-grid" id="dashboard-cockpit-grid">
             <!-- Rendered dynamically by js/views/dashboard.js -->
           </div>
         </section>
@@ -209,31 +190,47 @@
 
         <!-- 4. VIEW: ORDERS -->
         <section id="view-orders" class="view-section">
-          <!-- Orders Day Selector Toolbar -->
+          <!-- Orders Day / Month Selector Toolbar -->
           <div class="week-selector-card">
             <div class="week-selector-header">
-              <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
+              <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
                 <div>
-                  <div class="week-title" id="orders-week-title">Today's Orders</div>
+                  <div class="week-title" id="orders-week-title">Orders Management</div>
                   <div class="week-date-range" id="orders-week-range">--</div>
                 </div>
+                <!-- View Scope Switcher: Day vs Month -->
+                <div class="order-scope-nav">
+                  <button type="button" class="order-scope-btn" id="orders-scope-day" onclick="setOrdersViewScope('day')">📅 Day</button>
+                  <button type="button" class="order-scope-btn active" id="orders-scope-month" onclick="setOrdersViewScope('month')">🗓️ Month</button>
+                </div>
               </div>
-              <span class="badge badge-paid" id="orders-total-weekly-count" style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Orders Today</span>
+              <span class="badge badge-paid" id="orders-total-weekly-count" style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Orders</span>
             </div>
 
-            <div class="ios-segmented-nav">
+            <!-- Day Navigation (shown in Day view) -->
+            <div class="ios-segmented-nav" id="orders-day-nav" style="display: none;">
               <button type="button" class="ios-segment-btn" id="orders-seg-prev" onclick="setOrdersDayOffset(-1)">&#8592; Prev</button>
               <button type="button" class="ios-segment-btn active" id="orders-seg-current" onclick="setOrdersDayOffset(0)">Today</button>
               <button type="button" class="ios-segment-btn" id="orders-seg-next" onclick="setOrdersDayOffset(1)">Next &#8594;</button>
             </div>
+
+            <!-- Month Navigation (shown in Month view) -->
+            <div class="ios-segmented-nav" id="orders-month-nav">
+              <button type="button" class="ios-segment-btn" id="orders-month-prev" onclick="setOrdersMonthOffset(-1)">&#8592; Prev Month</button>
+              <button type="button" class="ios-segment-btn active" id="orders-month-current" onclick="setOrdersMonthOffset(0)">This Month</button>
+              <button type="button" class="ios-segment-btn" id="orders-month-next" onclick="setOrdersMonthOffset(1)">Next Month &#8594;</button>
+            </div>
           </div>
 
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.5rem; font-size: 0.8rem; font-weight: 700;">
-            <div style="display: flex; align-items: center; gap: 0.35rem;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.65rem; font-size: 0.8rem; font-weight: 700;">
+            <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
               <span style="color: var(--text-muted);">Payment:</span>
               <button class="filter-pill filter-payment active" data-val="All" onclick="setOrderFilter('payment', 'All')">All</button>
               <button class="filter-pill filter-payment" data-val="Paid" onclick="setOrderFilter('payment', 'Paid')">Paid</button>
               <button class="filter-pill filter-payment" data-val="Unpaid" onclick="setOrderFilter('payment', 'Unpaid')">Unpaid</button>
+            </div>
+            <div>
+              <input type="text" id="orders-search-input" placeholder="🔍 Search customer, food, date..." oninput="handleOrderSearchFilter(this.value)" class="form-control" style="max-width: 250px; height: 32px; font-size: 0.8rem; border-radius: 16px; padding: 0.3rem 0.85rem;" />
             </div>
           </div>
 
@@ -250,7 +247,7 @@
             <div class="week-selector-header">
               <div style="display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;">
                 <div>
-                  <div class="week-title" id="kitchen-week-title">🛵 Grab Dispatch Hub</div>
+                  <div class="week-title" id="kitchen-week-title">🛵 Rider Dispatch Hub</div>
                   <div class="week-date-range" id="kitchen-week-range">--</div>
                 </div>
               </div>
@@ -292,8 +289,8 @@
           <span>Menu</span>
         </div>
         <div class="bottom-nav-item" data-view="kitchen">
-          <svg class="svg-icon" viewBox="0 0 24 24"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.4 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-1.1 0-2 .9-2 2v7c0 .6.4 1 1 1h2"/><circle cx="7.5" cy="17.5" r="2.5"/><circle cx="16.5" cy="17.5" r="2.5"/></svg>
-          <span>Grab</span>
+          <svg class="svg-icon" viewBox="0 0 24 24"><circle cx="5" cy="18" r="3"/><circle cx="19" cy="18" r="3"/><path d="M12 18H8l2-7h4l2 4h3"/><path d="M13 7h-2l-1 4"/><circle cx="13" cy="4" r="1.5"/></svg>
+          <span>Riders</span>
         </div>
       </div>
     </nav>

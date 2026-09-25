@@ -1,15 +1,29 @@
 /* Simplest - Orders Management Controller */
 
+let orderViewScope = window.innerWidth >= 768 ? 'month' : 'day'; // Default to 'month' on desktop, 'day' on mobile
 let ordersDayOffset = 0; // 0 = Today, -1 = Yesterday, +1 = Tomorrow
+let ordersMonthOffset = 0; // 0 = Current Month, -1 = Prev Month, +1 = Next Month
 let orderFilterPayment = 'All';
+let orderSearchQuery = '';
 
 function initOrdersView() {
+  renderOrders();
+}
+
+function setOrdersViewScope(scope) {
+  orderViewScope = scope;
   renderOrders();
 }
 
 function setOrdersDayOffset(offsetChange) {
   if (offsetChange === 0) ordersDayOffset = 0;
   else ordersDayOffset += offsetChange;
+  renderOrders();
+}
+
+function setOrdersMonthOffset(offsetChange) {
+  if (offsetChange === 0) ordersMonthOffset = 0;
+  else ordersMonthOffset += offsetChange;
   renderOrders();
 }
 
@@ -23,10 +37,275 @@ function setOrderFilter(type, value) {
   renderOrders();
 }
 
+function handleOrderSearchFilter(query) {
+  orderSearchQuery = query;
+  renderOrders();
+}
+
 function renderOrders() {
   const container = document.getElementById('orders-list-container');
   if (!container) return;
 
+  // Sync Scope Toggle Buttons
+  const scopeDayBtn = document.getElementById('orders-scope-day');
+  const scopeMonthBtn = document.getElementById('orders-scope-month');
+  if (scopeDayBtn) scopeDayBtn.classList.toggle('active', orderViewScope === 'day');
+  if (scopeMonthBtn) scopeMonthBtn.classList.toggle('active', orderViewScope === 'month');
+
+  // Toggle Day vs Month Navigation
+  const dayNav = document.getElementById('orders-day-nav');
+  const monthNav = document.getElementById('orders-month-nav');
+  if (dayNav) dayNav.style.display = (orderViewScope === 'day') ? 'flex' : 'none';
+  if (monthNav) monthNav.style.display = (orderViewScope === 'month') ? 'flex' : 'none';
+
+  const weekTitleEl = document.getElementById('orders-week-title');
+  const weekRangeEl = document.getElementById('orders-week-range');
+  const totalCountEl = document.getElementById('orders-total-weekly-count');
+
+  const allOrders = Object.values(cachedOrders || {});
+  const q = (orderSearchQuery || '').toLowerCase().trim();
+
+  // ==========================================
+  // CASE 1: MONTHLY VIEW (Entire Month Details)
+  // ==========================================
+  if (orderViewScope === 'month') {
+    const now = new Date();
+    const targetMonthDate = new Date(now.getFullYear(), now.getMonth() + ordersMonthOffset, 1);
+    const yyyy = targetMonthDate.getFullYear();
+    const mm = String(targetMonthDate.getMonth() + 1).padStart(2, '0');
+    const yearMonth = `${yyyy}-${mm}`;
+    const monthName = targetMonthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const lastDayDate = new Date(yyyy, targetMonthDate.getMonth() + 1, 0);
+    const lastDay = lastDayDate.getDate();
+    const shortMonth = targetMonthDate.toLocaleDateString('en-US', { month: 'short' });
+
+    // Active state for Month segmented buttons
+    const mPrev = document.getElementById('orders-month-prev');
+    const mCurr = document.getElementById('orders-month-current');
+    const mNext = document.getElementById('orders-month-next');
+    if (mPrev && mCurr && mNext) {
+      mPrev.classList.toggle('active', ordersMonthOffset < 0);
+      mCurr.classList.toggle('active', ordersMonthOffset === 0);
+      mNext.classList.toggle('active', ordersMonthOffset > 0);
+    }
+
+    if (weekTitleEl) weekTitleEl.textContent = `🗓️ ${monthName} Orders`;
+    if (weekRangeEl) weekRangeEl.textContent = `01 ${shortMonth} - ${lastDay} ${shortMonth} ${yyyy} (Full Month)`;
+
+    // Filter month orders & sort chronologically
+    const monthOrders = allOrders.filter(ord => ord.date && ord.date.startsWith(yearMonth));
+    monthOrders.sort((a, b) => {
+      if (a.date !== b.date) return a.date.localeCompare(b.date);
+      return (b.createdAt || 0) - (a.createdAt || 0);
+    });
+
+    const totalMonthOrders = monthOrders.length;
+    const totalMonthMeals = monthOrders.reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
+    const totalMonthRevenue = monthOrders.reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
+    const paidOrders = monthOrders.filter(ord => ord.paymentStatus === 'Paid');
+    const unpaidOrders = monthOrders.filter(ord => ord.paymentStatus !== 'Paid');
+    const paidRevenue = paidOrders.reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
+    const unpaidRevenue = unpaidOrders.reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
+
+    if (totalCountEl) {
+      totalCountEl.textContent = `${totalMonthOrders} Orders (${totalMonthMeals} Meals)`;
+    }
+
+    // Apply Filter & Search
+    const filtered = monthOrders.filter(ord => {
+      if (orderFilterPayment !== 'All' && ord.paymentStatus !== orderFilterPayment) return false;
+      if (q) {
+        const matchName = (ord.customerName || '').toLowerCase().includes(q);
+        const matchFood = (ord.foodName || '').toLowerCase().includes(q);
+        const matchDate = (ord.date || '').toLowerCase().includes(q);
+        const matchDay = (ord.day || '').toLowerCase().includes(q);
+        const matchPhone = (ord.customerPhone || '').toLowerCase().includes(q);
+        if (!matchName && !matchFood && !matchDate && !matchDay && !matchPhone) return false;
+      }
+      return true;
+    });
+
+    // Monthly Stat Cards
+    const statsHtml = `
+      <div class="monthly-stats-grid">
+        <div class="monthly-stat-card">
+          <span class="monthly-stat-label">Total Orders</span>
+          <span class="monthly-stat-value">${totalMonthOrders} <span class="monthly-stat-sub">(${totalMonthMeals} meals)</span></span>
+        </div>
+        <div class="monthly-stat-card">
+          <span class="monthly-stat-label">Total Revenue</span>
+          <span class="monthly-stat-value" style="color:var(--primary-dark);">${formatRM(totalMonthRevenue)}</span>
+        </div>
+        <div class="monthly-stat-card">
+          <span class="monthly-stat-label">Paid Received</span>
+          <span class="monthly-stat-value" style="color:#10b981;">${formatRM(paidRevenue)} <span class="monthly-stat-sub">(${paidOrders.length})</span></span>
+        </div>
+        <div class="monthly-stat-card">
+          <span class="monthly-stat-label">Unpaid Pending</span>
+          <span class="monthly-stat-value" style="color:#ef4444;">${formatRM(unpaidRevenue)} <span class="monthly-stat-sub">(${unpaidOrders.length})</span></span>
+        </div>
+      </div>
+    `;
+
+    if (filtered.length === 0) {
+      container.innerHTML = `
+        ${statsHtml}
+        <div class="empty-state">
+          <div class="empty-state-icon" style="display:flex; justify-content:center; margin-bottom:0.5rem;">${getSvgIcon('orders', 'lg')}</div>
+          <div style="font-weight:700; font-size:0.95rem;">No orders found for ${monthName}</div>
+          <div style="font-size:0.8rem; color:var(--text-muted); margin-top:0.25rem;">Try adjusting payment filter or search query</div>
+        </div>
+      `;
+      return;
+    }
+
+    let tableRowsHtml = '';
+    let mobileCardsHtml = '';
+
+    filtered.forEach(ord => {
+      const isPaid = ord.paymentStatus === 'Paid';
+      const portion = ord.portion || 'Standard';
+      const contact = ord.contactId ? cachedContacts[ord.contactId] : null;
+      const address = (contact && contact.address) ? contact.address : (ord.customerAddress || '');
+      const riderName = (contact && contact.riderId && cachedContacts[contact.riderId]) ? cachedContacts[contact.riderId].name : (contact && contact.riderName ? contact.riderName : '');
+      const isDispatched = ord.dispatched === true;
+
+      const waLink = createWhatsAppOrderLink(
+        ord.customerPhone,
+        ord.customerName,
+        ord.day,
+        ord.date,
+        ord.foodName,
+        ord.quantity,
+        ord.totalAmount,
+        portion
+      );
+
+      // Desktop Table Row for Month View
+      tableRowsHtml += `
+        <tr data-order-id="${ord.orderId}">
+          <td>
+            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="font-weight: 700; font-size: 0.88rem; color: var(--text-main);">${formatDateReadable(ord.date)}</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">${ord.day}</span>
+            </div>
+          </td>
+          <td>
+            <div style="display: flex; flex-direction: column; gap: 0.15rem;">
+              <span style="font-weight: 700; font-size: 0.9rem;">${ord.customerName}</span>
+              ${ord.customerPhone ? `<span style="font-size: 0.78rem; color: var(--text-muted);">${ord.customerPhone}</span>` : ''}
+              ${address ? `<span style="font-size: 0.725rem; color: var(--text-muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${address}">📍 ${address}</span>` : ''}
+            </div>
+          </td>
+          <td>
+            <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+              <span style="font-weight: 700;">${ord.foodName}</span>
+              <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">
+                ${portion === 'Small' ? 'Small' : 'Standard'}
+              </span>
+              <span style="color: var(--text-muted); font-weight: 700;">× ${ord.quantity}</span>
+            </div>
+          </td>
+          <td style="font-weight: 800; color: var(--primary-dark); font-size: 0.95rem;">${formatRM(ord.totalAmount)}</td>
+          <td>
+            <button class="badge ${isPaid ? 'badge-paid' : 'badge-unpaid'}" style="cursor: pointer; border: none;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')" title="Click to toggle payment status">
+              ${isPaid ? 'Paid' : 'Unpaid'}
+            </button>
+          </td>
+          <td>
+            <div style="display: flex; flex-direction: column; gap: 0.2rem;">
+              <span style="font-size: 0.78rem; font-weight: 700; color: ${riderName ? 'var(--primary-dark)' : 'var(--text-muted)'};">
+                ${riderName ? `🛵 ${riderName}` : '—'}
+              </span>
+              <span class="badge ${isDispatched ? 'badge-paid' : 'badge-unpaid'}" style="font-size: 0.65rem; padding: 0.15rem 0.4rem; width: fit-content;">
+                ${isDispatched ? '✓ Sent' : '⏳ Pending'}
+              </span>
+            </div>
+          </td>
+          <td>
+            <div style="display: flex; gap: 0.35rem; align-items: center;">
+              <a href="${waLink}" target="_blank" class="btn btn-whatsapp btn-sm" title="WhatsApp Message">
+                ${getSvgIcon('whatsapp', 'sm')}
+              </a>
+              <button class="btn btn-outline btn-sm" style="color: #ef4444;" onclick="deleteOrderAction('${ord.orderId}')" title="Delete">
+                ${getSvgIcon('trash', 'sm')}
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+
+      // Mobile Card Item
+      mobileCardsHtml += `
+        <div class="mobile-data-card" data-order-id="${ord.orderId}">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+            <div>
+              <span style="font-size: 1rem; font-weight: 800;">${ord.customerName}</span>
+              <div style="font-size: 0.75rem; color: var(--text-muted);">${formatDateReadable(ord.date)} (${ord.day})</div>
+            </div>
+            <span style="font-size: 1.1rem; font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</span>
+          </div>
+          <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
+            🥗 ${ord.foodName}
+            <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">${portion === 'Small' ? 'Small' : 'Standard'}</span>
+            × ${ord.quantity}
+            ${riderName ? ` • 🛵 ${riderName}` : ''}
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+            <div style="display: flex; gap: 0.35rem; align-items: center;">
+              <button class="badge ${isPaid ? 'badge-paid' : 'badge-unpaid'}" style="cursor: pointer; border: none;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')">
+                ${isPaid ? 'Paid' : 'Unpaid'}
+              </button>
+              <span class="badge ${isDispatched ? 'badge-paid' : 'badge-unpaid'}" style="font-size: 0.65rem;">
+                ${isDispatched ? '✓ Sent' : '⏳ Pending'}
+              </span>
+            </div>
+            <div style="display: flex; gap: 0.35rem;">
+              <a href="${waLink}" target="_blank" class="btn btn-whatsapp btn-sm">
+                ${getSvgIcon('whatsapp', 'sm')}
+              </a>
+              <button class="btn btn-outline btn-sm" style="color: #ef4444;" onclick="deleteOrderAction('${ord.orderId}')">
+                ${getSvgIcon('trash', 'sm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+    });
+
+    container.innerHTML = `
+      ${statsHtml}
+      <!-- Desktop Table View -->
+      <div class="data-table-card desktop-table-view">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Meal Date</th>
+              <th>Customer</th>
+              <th>Food Item</th>
+              <th>Total Amount</th>
+              <th>Payment</th>
+              <th>Rider Dispatch</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${tableRowsHtml}
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Mobile Card View -->
+      <div class="mobile-card-list">
+        ${mobileCardsHtml}
+      </div>
+    `;
+    return;
+  }
+
+  // ==========================================
+  // CASE 2: DAILY VIEW (Single Day Details)
+  // ==========================================
   const now = new Date();
   const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ordersDayOffset);
 
@@ -37,11 +316,6 @@ function renderOrders() {
 
   const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
   const formattedDate = formatDateReadable(targetDateStr);
-
-  // Update Title and Date Range
-  const weekTitleEl = document.getElementById('orders-week-title');
-  const weekRangeEl = document.getElementById('orders-week-range');
-  const totalCountEl = document.getElementById('orders-total-weekly-count');
 
   let labelText = "Today's Orders";
   if (ordersDayOffset === -1) labelText = "Yesterday's Orders";
@@ -63,8 +337,8 @@ function renderOrders() {
   }
 
   // Filter Orders for Today/Target Date
-  const ordersArr = Object.values(cachedOrders || {}).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  const dayOrders = ordersArr.filter(ord => ord.date === targetDateStr);
+  const dayOrders = allOrders.filter(ord => ord.date === targetDateStr);
+  dayOrders.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
   const dayMealsCount = dayOrders.reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
 
   if (totalCountEl) {
@@ -72,8 +346,13 @@ function renderOrders() {
   }
 
   const filtered = dayOrders.filter(ord => {
-    // Payment status filter
     if (orderFilterPayment !== 'All' && ord.paymentStatus !== orderFilterPayment) return false;
+    if (q) {
+      const matchName = (ord.customerName || '').toLowerCase().includes(q);
+      const matchFood = (ord.foodName || '').toLowerCase().includes(q);
+      const matchPhone = (ord.customerPhone || '').toLowerCase().includes(q);
+      if (!matchName && !matchFood && !matchPhone) return false;
+    }
     return true;
   });
 
@@ -88,14 +367,17 @@ function renderOrders() {
     return;
   }
 
-  // Desktop Table HTML
   let tableRowsHtml = '';
-  // Mobile Cards HTML
   let mobileCardsHtml = '';
 
   filtered.forEach(ord => {
     const isPaid = ord.paymentStatus === 'Paid';
     const portion = ord.portion || 'Standard';
+    const contact = ord.contactId ? cachedContacts[ord.contactId] : null;
+    const address = (contact && contact.address) ? contact.address : (ord.customerAddress || '');
+    const riderName = (contact && contact.riderId && cachedContacts[contact.riderId]) ? cachedContacts[contact.riderId].name : (contact && contact.riderName ? contact.riderName : '');
+    const isDispatched = ord.dispatched === true;
+
     const waLink = createWhatsAppOrderLink(
       ord.customerPhone,
       ord.customerName,
@@ -107,10 +389,12 @@ function renderOrders() {
       portion
     );
 
-    // Build Table Row (Desktop)
     tableRowsHtml += `
       <tr data-order-id="${ord.orderId}">
-        <td style="font-weight: 700;">${ord.customerName}</td>
+        <td style="font-weight: 700;">
+          <div>${ord.customerName}</div>
+          ${address ? `<div style="font-size:0.75rem; color:var(--text-muted); font-weight:normal;">📍 ${address}</div>` : ''}
+        </td>
         <td style="color: var(--text-muted);">${ord.day.slice(0, 3)} (${formatDateReadable(ord.date)})</td>
         <td>
           <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
@@ -140,7 +424,6 @@ function renderOrders() {
       </tr>
     `;
 
-    // Build Card Item (Mobile)
     mobileCardsHtml += `
       <div class="mobile-data-card" data-order-id="${ord.orderId}">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
@@ -202,6 +485,7 @@ async function togglePaymentStatusAction(orderId, currentStatus) {
   const nextStatus = currentStatus === 'Paid' ? 'Unpaid' : 'Paid';
   await dbUpdateOrderStatus(orderId, nextStatus, null);
   renderOrders();
+  if (typeof renderDashboard === 'function') renderDashboard();
 }
 
 async function deleteOrderAction(orderId) {
@@ -209,6 +493,7 @@ async function deleteOrderAction(orderId) {
   if (confirmed) {
     await dbDeleteOrder(orderId);
     renderOrders();
+    if (typeof renderDashboard === 'function') renderDashboard();
     showMaterialToast('Order deleted successfully', 'info');
   }
 }

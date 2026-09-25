@@ -38,11 +38,11 @@ function renderKitchen() {
   const dateRangeEl = document.getElementById('kitchen-week-range');
   const headerSummaryEl = document.getElementById('kitchen-total-weekly-meals');
 
-  let labelText = "🛵 Today's Grab Dispatch";
-  if (kitchenDayOffset === -1) labelText = "🛵 Yesterday's Grab Dispatch";
-  else if (kitchenDayOffset === 1) labelText = "🛵 Tomorrow's Grab Dispatch";
-  else if (kitchenDayOffset < -1) labelText = `🛵 ${Math.abs(kitchenDayOffset)} Days Ago Dispatch`;
-  else if (kitchenDayOffset > 1) labelText = `🛵 In ${kitchenDayOffset} Days Dispatch`;
+  let labelText = "🛵 Today's Rider Dispatch";
+  if (kitchenDayOffset === -1) labelText = "🛵 Yesterday's Rider Dispatch";
+  else if (kitchenDayOffset === 1) labelText = "🛵 Tomorrow's Rider Dispatch";
+  else if (kitchenDayOffset < -1) labelText = `🛵 ${Math.abs(kitchenDayOffset)} Days Ago Rider Dispatch`;
+  else if (kitchenDayOffset > 1) labelText = `🛵 In ${kitchenDayOffset} Days Rider Dispatch`;
 
   if (titleEl) titleEl.textContent = labelText;
   if (dateRangeEl) dateRangeEl.textContent = `${dayName}, ${formattedDate}`;
