@@ -35,26 +35,42 @@ function createWhatsAppRiderManifestLink(riderPhone, riderName, dateStr, deliver
   const formattedPhone = formatPhoneForWA(riderPhone);
   const formattedDate = formatDateReadable(dateStr);
 
-  let msg = `🛵 *Rider Delivery List - ${formattedDate}*\n`;
-  msg += `Rider: *${riderName}*\n\n`;
-  msg += `📦 *Deliveries to Make (${deliveries.length}):*\n\n`;
+ let msg = `RIDER DELIVERY LIST\n`;
+msg += `${formattedDate}\n`;
+msg += `Rider: *${riderName}*\n\n`;
 
-  deliveries.forEach((item, index) => {
-    const portionLabel = item.portion === 'Small' ? 'Small' : 'Standard';
-    msg += `${index + 1}. *${item.customerName}*\n`;
-    if (item.customerPhone) msg += `📞 Phone: ${item.customerPhone}\n`;
-    msg += `📍 Address: ${item.address || 'No address specified'}\n`;
-    msg += `🍱 Food: ${item.foodName} [${portionLabel}] × ${item.quantity}\n\n`;
-  });
+msg += `TOTAL DELIVERIES: ${deliveries.length}\n\n`;
 
-  msg += `-------------------\nTotal Deliveries: ${deliveries.length}`;
+deliveries.forEach((item, index) => {
+  const portionLabel = item.portion === 'Small' ? 'Small' : 'Standard';
 
-  const encodedText = encodeURIComponent(msg);
+  msg += `${index + 1}. *${item.customerName}*\n`;
 
-  if (formattedPhone) {
-    return `https://wa.me/${formattedPhone}?text=${encodedText}`;
-  } else {
-    return `https://wa.me/?text=${encodedText}`;
+  if (item.customerPhone) {
+    msg += `Phone: ${item.customerPhone}\n`;
   }
+
+  msg += `Address:\n`;
+  msg += `${item.address || 'No address specified'}\n`;
+
+  msg += `Food: ${item.foodName}\n`;
+  msg += `Portion: ${portionLabel}\n`;
+  msg += `Qty: ${item.quantity}\n\n`;
+
+  if (index < deliveries.length - 1) {
+    msg += `--------------------\n\n`;
+  }
+});
+
+msg += `--------------------\n`;
+msg += `END OF DELIVERY LIST`;
+
+const encodedText = encodeURIComponent(msg);
+
+if (formattedPhone) {
+  return `https://wa.me/${formattedPhone}?text=${encodedText}`;
+} else {
+  return `https://wa.me/?text=${encodedText}`;
+}
 }
 
