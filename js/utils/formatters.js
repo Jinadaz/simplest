@@ -158,6 +158,8 @@ function showMaterialToast(message, type = 'warning') {
   if (iconEl) {
     if (type === 'error' || type === 'danger') {
       iconEl.textContent = '❌';
+    } else if (type === 'success') {
+      iconEl.textContent = '✅';
     } else if (type === 'info') {
       iconEl.textContent = 'ℹ️';
     } else {

@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize UI Theme (Dark/Light Mode)
   initTheme();
 
-  // Initialize Firebase Config & Auth
+  // Initialize Firebase Config & Aut
   initFirebase();
 
   // Initialize Database Listeners
