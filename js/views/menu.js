@@ -408,9 +408,15 @@ function openPriceSettingsModal() {
   const pricing = dbGetPricing();
   const stdInput = document.getElementById('pricing-input-standard');
   const smlInput = document.getElementById('pricing-input-small');
-  
+  const proteinInput = document.getElementById('pricing-input-protein');
+  const vegeInput = document.getElementById('pricing-input-vege');
+  const riceInput = document.getElementById('pricing-input-rice');
+
   if (stdInput) stdInput.value = (pricing.standard || 12.00).toFixed(2);
   if (smlInput) smlInput.value = (pricing.small || 9.00).toFixed(2);
+  if (proteinInput) proteinInput.value = (pricing.addonProtein || 2.00).toFixed(2);
+  if (vegeInput) vegeInput.value = (pricing.addonVege || 1.50).toFixed(2);
+  if (riceInput) riceInput.value = (pricing.addonRice || 1.00).toFixed(2);
 
   const modal = document.getElementById('price-settings-modal');
   if (modal) modal.classList.add('active');
@@ -425,6 +431,9 @@ async function savePriceSettingsSubmit(event) {
   event.preventDefault();
   const stdVal = parseFloat(document.getElementById('pricing-input-standard').value);
   const smlVal = parseFloat(document.getElementById('pricing-input-small').value);
+  const proteinVal = parseFloat(document.getElementById('pricing-input-protein').value) || 2.00;
+  const vegeVal = parseFloat(document.getElementById('pricing-input-vege').value) || 1.50;
+  const riceVal = parseFloat(document.getElementById('pricing-input-rice').value) || 1.00;
 
   if (isNaN(stdVal) || stdVal < 0 || isNaN(smlVal) || smlVal < 0) {
     showMaterialToast('Please enter valid prices for both portion sizes', 'warning');
@@ -433,10 +442,16 @@ async function savePriceSettingsSubmit(event) {
 
   await dbSavePricing({
     standard: stdVal,
-    small: smlVal
+    small: smlVal,
+    addonProtein: proteinVal,
+    addonVege: vegeVal,
+    addonRice: riceVal
   });
 
   closePriceSettingsModal();
+
+  // Refresh addon price tags in the Add Order modal if open
+  if (typeof refreshAddonPriceTags === 'function') refreshAddonPriceTags();
 
   // Refresh all views to reflect updated prices
   if (typeof renderMenu === 'function') renderMenu();

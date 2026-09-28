@@ -4,7 +4,8 @@
 let cachedMenus = {};
 let cachedContacts = {};
 let cachedOrders = {};
-let cachedPricing = { standard: 12.00, small: 9.00 };
+let cachedCreditLogs = {};
+let cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00 };
 
 let dbListeners = [];
 let isDbInitialized = false;
@@ -21,6 +22,7 @@ function notifyDataChanged() {
     menus: cachedMenus, 
     contacts: cachedContacts, 
     orders: cachedOrders,
+    creditLogs: cachedCreditLogs,
     pricing: cachedPricing 
   }));
 }
@@ -55,12 +57,20 @@ async function initDatabase() {
       notifyDataChanged();
     });
 
+    db.ref('credit_logs').on('value', (snapshot) => {
+      cachedCreditLogs = snapshot.val() || {};
+      notifyDataChanged();
+    });
+
     db.ref('settings/pricing').on('value', (snapshot) => {
       const val = snapshot.val();
       if (val && (val.standard !== undefined || val.small !== undefined)) {
         cachedPricing = {
           standard: parseFloat(val.standard) || 12.00,
-          small: parseFloat(val.small) || 9.00
+          small: parseFloat(val.small) || 9.00,
+          addonProtein: parseFloat(val.addonProtein) || 2.00,
+          addonVege: parseFloat(val.addonVege) || 1.50,
+          addonRice: parseFloat(val.addonRice) || 1.00
         };
       }
       notifyDataChanged();
@@ -76,6 +86,7 @@ async function initDatabase() {
     const localMenus = localStorage.getItem('simplest_menus');
     const localContacts = localStorage.getItem('simplest_contacts');
     const localOrders = localStorage.getItem('simplest_orders');
+    const localCreditLogs = localStorage.getItem('simplest_credit_logs');
     const localPricing = localStorage.getItem('simplest_pricing');
 
     if (localPricing) {
@@ -83,13 +94,16 @@ async function initDatabase() {
         const parsed = JSON.parse(localPricing);
         cachedPricing = {
           standard: parseFloat(parsed.standard) || 12.00,
-          small: parseFloat(parsed.small) || 9.00
+          small: parseFloat(parsed.small) || 9.00,
+          addonProtein: parseFloat(parsed.addonProtein) || 2.00,
+          addonVege: parseFloat(parsed.addonVege) || 1.50,
+          addonRice: parseFloat(parsed.addonRice) || 1.00
         };
       } catch (e) {
-        cachedPricing = { standard: 12.00, small: 9.00 };
+        cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00 };
       }
     } else {
-      cachedPricing = { standard: 12.00, small: 9.00 };
+      cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00 };
       localStorage.setItem('simplest_pricing', JSON.stringify(cachedPricing));
     }
 
@@ -98,6 +112,7 @@ async function initDatabase() {
       cachedMenus = {};
       cachedContacts = {};
       cachedOrders = {};
+      cachedCreditLogs = {};
 
       await seedInitialData((path, data) => {
         if (path === 'menus') cachedMenus = data;
@@ -110,6 +125,7 @@ async function initDatabase() {
       cachedMenus = JSON.parse(localMenus || '{}');
       cachedContacts = JSON.parse(localContacts || '{}');
       cachedOrders = JSON.parse(localOrders || '{}');
+      cachedCreditLogs = JSON.parse(localCreditLogs || '{}');
     }
     notifyDataChanged();
   }
@@ -119,6 +135,7 @@ function saveToLocalStorage() {
   localStorage.setItem('simplest_menus', JSON.stringify(cachedMenus));
   localStorage.setItem('simplest_contacts', JSON.stringify(cachedContacts));
   localStorage.setItem('simplest_orders', JSON.stringify(cachedOrders));
+  localStorage.setItem('simplest_credit_logs', JSON.stringify(cachedCreditLogs));
   localStorage.setItem('simplest_pricing', JSON.stringify(cachedPricing));
   notifyDataChanged();
 }
@@ -436,6 +453,9 @@ async function dbSavePricing(pricing) {
   cachedPricing = {
     standard: parseFloat(pricing.standard) || 12.00,
     small: parseFloat(pricing.small) || 9.00,
+    addonProtein: parseFloat(pricing.addonProtein) || 2.00,
+    addonVege: parseFloat(pricing.addonVege) || 1.50,
+    addonRice: parseFloat(pricing.addonRice) || 1.00,
     updatedAt: Date.now()
   };
   notifyDataChanged();
@@ -446,4 +466,31 @@ async function dbSavePricing(pricing) {
     saveToLocalStorage();
   }
   return cachedPricing;
+}
+
+// Credit Log Actions
+async function dbAddCreditLog(logData) {
+  const logId = 'clog_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const record = {
+    logId,
+    timestamp: Date.now(),
+    ...logData
+  };
+
+  cachedCreditLogs[logId] = record;
+  notifyDataChanged();
+
+  if (isFirebaseLive && db) {
+    await db.ref(`credit_logs/${logId}`).set(record);
+  } else {
+    saveToLocalStorage();
+  }
+  return logId;
+}
+
+function dbGetCreditLogsForContact(contactId) {
+  if (!contactId) return [];
+  return Object.values(cachedCreditLogs)
+    .filter(log => log.contactId === contactId)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 }

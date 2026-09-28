@@ -293,6 +293,80 @@ html, body, #app-container, .main-wrapper {
   .order-date-cards-grid .date-select-food {
     display: none !important;
   }
+
+  /* ── Add Order Modal Mobile Layout ── */
+  .order-modal-card {
+    max-width: 100% !important;
+    max-height: 92vh !important;
+  }
+
+  .order-modal-body {
+    padding: 0.75rem 0.9rem !important;
+    gap: 0.75rem !important;
+  }
+
+  .order-date-cards-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 0.3rem !important;
+  }
+
+  .date-select-card {
+    padding: 0.3rem 0.15rem !important;
+  }
+
+  .date-select-day {
+    font-size: 0.62rem !important;
+    padding: 0.08rem 0.3rem !important;
+  }
+
+  .date-select-date {
+    font-size: 0.72rem !important;
+    margin-top: 0.15rem !important;
+  }
+
+  .portion-radio-group {
+    gap: 0.5rem !important;
+  }
+
+  .portion-radio-btn {
+    padding: 0.55rem 0.65rem !important;
+    gap: 0.45rem !important;
+  }
+
+  .addon-grid {
+    gap: 0.4rem !important;
+  }
+
+  .addon-toggle-btn {
+    padding: 0.45rem 0.25rem !important;
+    font-size: 0.78rem !important;
+  }
+
+  .addon-btn-label {
+    font-size: 0.78rem !important;
+  }
+
+  .addon-price-tag {
+    font-size: 0.68rem !important;
+    padding: 1px 4px !important;
+  }
+
+  .payment-radio-group {
+    gap: 0.4rem !important;
+  }
+
+  .payment-radio-card {
+    padding: 0.55rem 0.3rem !important;
+  }
+
+  .payment-radio-title {
+    font-size: 0.78rem !important;
+  }
+
+  .order-total-box {
+    font-size: 0.82rem !important;
+    padding: 0 0.35rem !important;
+  }
 }
 
 /* ═══════════════════════════════════════

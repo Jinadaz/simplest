@@ -236,8 +236,8 @@ function renderDashboard() {
           </td>
           <td style="font-weight: 800; color: var(--primary-dark); font-size: 0.88rem;">${formatRM(ord.totalAmount)}</td>
           <td>
-            <button class="badge ${isPaid ? 'badge-paid' : 'badge-unpaid'}" style="cursor: pointer; border: none; font-size: 0.7rem;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')">
-              ${isPaid ? 'Paid' : 'Unpaid'}
+            <button class="badge ${ord.paymentStatus === 'Paid' ? 'badge-paid' : (ord.paymentStatus === 'Package' ? 'badge-package' : 'badge-unpaid')}" style="cursor: pointer; border: none; font-size: 0.7rem;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')">
+              ${ord.paymentStatus || 'Unpaid'}
             </button>
           </td>
           <td>
@@ -272,8 +272,8 @@ function renderDashboard() {
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.45rem; border-top: 1px dashed var(--border-color);">
             <div style="display: flex; gap: 0.35rem; align-items: center;">
-              <button class="badge ${isPaid ? 'badge-paid' : 'badge-unpaid'}" style="cursor: pointer; border: none;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')">
-                ${isPaid ? 'Paid' : 'Unpaid'}
+              <button class="badge ${ord.paymentStatus === 'Paid' ? 'badge-paid' : (ord.paymentStatus === 'Package' ? 'badge-package' : 'badge-unpaid')}" style="cursor: pointer; border: none;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')">
+                ${ord.paymentStatus || 'Unpaid'}
               </button>
               <span class="badge ${isDispatched ? 'badge-paid' : 'badge-unpaid'}" style="font-size: 0.65rem;">
                 ${isDispatched ? '✓ Sent' : '⏳ Pending'}
