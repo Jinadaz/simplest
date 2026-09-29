@@ -367,6 +367,11 @@ html, body, #app-container, .main-wrapper {
     font-size: 0.82rem !important;
     padding: 0 0.35rem !important;
   }
+
+  .order-address-options-grid {
+    grid-template-columns: 1fr !important;
+    gap: 0.5rem !important;
+  }
 }
 
 /* ═══════════════════════════════════════

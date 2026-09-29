@@ -402,8 +402,27 @@ async function saveMenuSubmit(event) {
 }
 
 /* ─────────────────────────────────────────
-   GLOBAL PRICE SETTINGS MODAL CONTROLLER
+   GLOBAL PRICE SETTINGS MODAL CONTROLLER (FOOD & RIDER)
 ───────────────────────────────────────── */
+function switchPriceSettingsTab(tab) {
+  const btnFood = document.getElementById('price-tab-btn-food');
+  const btnRider = document.getElementById('price-tab-btn-rider');
+  const tabFood = document.getElementById('price-tab-food');
+  const tabRider = document.getElementById('price-tab-rider');
+
+  if (tab === 'food') {
+    if (btnFood) btnFood.classList.add('active');
+    if (btnRider) btnRider.classList.remove('active');
+    if (tabFood) tabFood.style.display = 'block';
+    if (tabRider) tabRider.style.display = 'none';
+  } else {
+    if (btnFood) btnFood.classList.remove('active');
+    if (btnRider) btnRider.classList.add('active');
+    if (tabFood) tabFood.style.display = 'none';
+    if (tabRider) tabRider.style.display = 'block';
+  }
+}
+
 function openPriceSettingsModal() {
   const pricing = dbGetPricing();
   const stdInput = document.getElementById('pricing-input-standard');
@@ -411,15 +430,75 @@ function openPriceSettingsModal() {
   const proteinInput = document.getElementById('pricing-input-protein');
   const vegeInput = document.getElementById('pricing-input-vege');
   const riceInput = document.getElementById('pricing-input-rice');
+  const defRiderInput = document.getElementById('pricing-input-default-rider');
 
   if (stdInput) stdInput.value = (pricing.standard || 12.00).toFixed(2);
   if (smlInput) smlInput.value = (pricing.small || 9.00).toFixed(2);
   if (proteinInput) proteinInput.value = (pricing.addonProtein || 2.00).toFixed(2);
   if (vegeInput) vegeInput.value = (pricing.addonVege || 1.50).toFixed(2);
   if (riceInput) riceInput.value = (pricing.addonRice || 1.00).toFixed(2);
+  if (defRiderInput) defRiderInput.value = (pricing.defaultRiderFee !== undefined ? parseFloat(pricing.defaultRiderFee) : 0).toFixed(2);
+
+  // Render Riders List
+  renderPricingRidersList(pricing);
+
+  // Default to Food tab
+  switchPriceSettingsTab('food');
 
   const modal = document.getElementById('price-settings-modal');
   if (modal) modal.classList.add('active');
+}
+
+function renderPricingRidersList(pricing) {
+  const listEl = document.getElementById('pricing-riders-list');
+  if (!listEl) return;
+
+  const riders = Object.entries(cachedContacts || {})
+    .map(([id, c]) => ({ id, ...c }))
+    .filter(c => c.isRider === true || c.role === 'rider');
+
+  const riderFees = pricing.riderFees || {};
+
+  if (riders.length === 0) {
+    listEl.innerHTML = `
+      <div style="font-size:0.8rem; color:var(--text-muted); padding:1rem; text-align:center; background:var(--bg-surface-secondary,#f8fafc); border-radius:var(--radius-md); border:1px dashed var(--border-color);">
+        No riders registered in Contacts yet.<br>
+        <span style="font-size:0.75rem;">Add a contact with role "Rider" to set individual fees.</span>
+      </div>
+    `;
+    return;
+  }
+
+  let html = '';
+  riders.forEach(r => {
+    let feeStr = '0.00';
+    if (riderFees[r.id] !== undefined && riderFees[r.id] !== null && !isNaN(riderFees[r.id])) {
+      feeStr = parseFloat(riderFees[r.id]).toFixed(2);
+    } else if (pricing.defaultRiderFee !== undefined && !isNaN(pricing.defaultRiderFee)) {
+      feeStr = parseFloat(pricing.defaultRiderFee).toFixed(2);
+    }
+
+    html += `
+      <div class="pricing-rider-row" style="display:flex; align-items:center; justify-content:space-between; padding:0.6rem 0.75rem; border:1px solid var(--border-color); border-radius:var(--radius-md); margin-bottom:0.5rem; background:var(--bg-surface);">
+        <div style="min-width:0; flex:1; padding-right:0.5rem;">
+          <div style="font-weight:700; font-size:0.85rem; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            🛵 ${r.name}
+          </div>
+          <div style="font-size:0.75rem; color:var(--text-muted);">
+            ${r.phone || 'No phone'}
+          </div>
+        </div>
+        <div style="display:flex; align-items:center; gap:0.35rem; flex-shrink:0;">
+          <span style="font-weight:800; font-size:0.8rem; color:var(--text-muted);">RM</span>
+          <input type="number" step="0.50" min="0" class="form-control pricing-rider-fee-input" data-rider-id="${r.id}"
+            value="${feeStr}" placeholder="0.00"
+            style="width:85px; text-align:right; font-weight:700; padding:0.35rem 0.5rem; font-size:0.9rem;" />
+        </div>
+      </div>
+    `;
+  });
+
+  listEl.innerHTML = html;
 }
 
 function closePriceSettingsModal() {
@@ -435,29 +514,50 @@ async function savePriceSettingsSubmit(event) {
   const vegeVal = parseFloat(document.getElementById('pricing-input-vege').value) || 1.50;
   const riceVal = parseFloat(document.getElementById('pricing-input-rice').value) || 1.00;
 
+  const defRiderInput = document.getElementById('pricing-input-default-rider');
+  const defaultRiderFee = defRiderInput ? (parseFloat(defRiderInput.value) || 0) : 0;
+
   if (isNaN(stdVal) || stdVal < 0 || isNaN(smlVal) || smlVal < 0) {
     showMaterialToast('Please enter valid prices for both portion sizes', 'warning');
     return;
   }
+
+  // Collect individual rider fees
+  const riderFees = {};
+  const feeInputs = document.querySelectorAll('.pricing-rider-fee-input');
+  feeInputs.forEach(inp => {
+    const rId = inp.getAttribute('data-rider-id');
+    const val = parseFloat(inp.value);
+    if (rId) {
+      riderFees[rId] = isNaN(val) ? defaultRiderFee : Math.max(0, val);
+    }
+  });
 
   await dbSavePricing({
     standard: stdVal,
     small: smlVal,
     addonProtein: proteinVal,
     addonVege: vegeVal,
-    addonRice: riceVal
+    addonRice: riceVal,
+    defaultRiderFee: defaultRiderFee,
+    riderFees: riderFees
   });
 
   closePriceSettingsModal();
 
   // Refresh addon price tags in the Add Order modal if open
   if (typeof refreshAddonPriceTags === 'function') refreshAddonPriceTags();
+  if (typeof refreshOrderRiderOptions === 'function') refreshOrderRiderOptions();
 
   // Refresh all views to reflect updated prices
   if (typeof renderMenu === 'function') renderMenu();
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof renderOrders === 'function') renderOrders();
   if (typeof renderKitchen === 'function') renderKitchen();
+
+  if (typeof showCleanCheckmark === 'function') {
+    showCleanCheckmark('Prices Saved');
+  }
 }
 
 

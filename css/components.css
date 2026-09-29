@@ -1014,6 +1014,131 @@
   color: #34d399;
 }
 
+/* ─── Delivery Address Selection Cards (Add Order Modal) ─── */
+.order-address-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.65rem;
+}
+
+.order-address-card {
+  display: flex;
+  flex-direction: column;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg, #ffffff);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  user-select: none;
+  position: relative;
+}
+
+.order-address-card:hover {
+  border-color: var(--primary-accent);
+  background: var(--primary-light);
+}
+
+.order-address-card.active {
+  border-color: var(--primary-dark);
+  background: var(--primary-light);
+  box-shadow: 0 0 0 1.5px var(--primary-dark);
+}
+
+.order-addr-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.3rem;
+}
+
+.order-addr-radio-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid #cbd5e1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.15s ease;
+}
+
+.order-address-card.active .order-addr-radio-dot {
+  border-color: var(--primary-dark);
+}
+
+.order-address-card.active .order-addr-radio-dot::after {
+  content: '';
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--primary-dark);
+}
+
+.order-addr-card-title {
+  font-size: 0.8rem;
+  font-weight: 800;
+  color: var(--text-main);
+}
+
+.order-addr-card-text {
+  font-size: 0.775rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 0.35rem;
+  word-break: break-word;
+}
+
+.order-addr-card-rider {
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: #1d4ed8;
+  background: #eff6ff;
+  padding: 0.15rem 0.45rem;
+  border-radius: 4px;
+  width: fit-content;
+}
+
+[data-theme="dark"] .order-address-card {
+  background: #15221e;
+  border-color: #223530;
+}
+
+[data-theme="dark"] .order-address-card.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+}
+
+[data-theme="dark"] .order-address-card.active .order-addr-radio-dot {
+  border-color: #10b981;
+}
+
+[data-theme="dark"] .order-address-card.active .order-addr-radio-dot::after {
+  background: #10b981;
+}
+
+[data-theme="dark"] .order-addr-card-rider {
+  background: rgba(59, 130, 246, 0.2);
+  color: #93c5fd;
+}
+
+[data-theme="dark"] #btn-show-add-address2 {
+  background: rgba(16, 185, 129, 0.15) !important;
+  color: #6ee7b7 !important;
+  border-color: #059669 !important;
+}
+
+[data-theme="dark"] .pricing-rider-row,
+[data-theme="dark"] #order-rider-fee-section {
+  background: #15221e !important;
+  border-color: #223530 !important;
+}
+
 /* Dark Theme Specific Components Overrides */
 [data-theme="dark"] .form-control {
   background: #0f1715;

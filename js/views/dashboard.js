@@ -78,8 +78,8 @@ function renderDashboard() {
   const stdMealsCount = dayOrders.filter(ord => ord.portion !== 'Small').reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
   const smlMealsCount = dayOrders.filter(ord => ord.portion === 'Small').reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
   const sentDeliveriesCount = dayOrders.filter(ord => ord.dispatched === true).length;
-  const unpaidOrdersCount = dayOrders.filter(ord => ord.paymentStatus !== 'Paid').length;
-  const unpaidAmount = dayOrders.filter(ord => ord.paymentStatus !== 'Paid').reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
+  const unpaidOrdersCount = dayOrders.filter(ord => ord.paymentStatus === 'Unpaid').length;
+  const unpaidAmount = dayOrders.filter(ord => ord.paymentStatus === 'Unpaid').reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
 
   // Month-to-date Metrics
   const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -205,8 +205,9 @@ function renderDashboard() {
       const isPaid = ord.paymentStatus === 'Paid';
       const isDispatched = ord.dispatched === true;
       const contact = ord.contactId ? cachedContacts[ord.contactId] : null;
-      const address = (contact && contact.address) ? contact.address : (ord.customerAddress || '');
-      const riderName = (contact && contact.riderId && cachedContacts[contact.riderId]) ? cachedContacts[contact.riderId].name : (contact && contact.riderName ? contact.riderName : '');
+      const address = ord.address || (contact && contact.address ? contact.address : (ord.customerAddress || ''));
+      const riderId = ord.riderId || (contact && contact.riderId ? contact.riderId : '');
+      const riderName = (riderId && cachedContacts[riderId]) ? cachedContacts[riderId].name : (ord.riderName || (contact && contact.riderName ? contact.riderName : ''));
       const portion = ord.portion || 'Standard';
 
       const waLink = createWhatsAppOrderLink(
@@ -234,7 +235,12 @@ function renderDashboard() {
               × ${ord.quantity}
             </div>
           </td>
-          <td style="font-weight: 800; color: var(--primary-dark); font-size: 0.88rem;">${formatRM(ord.totalAmount)}</td>
+          <td>
+            <div style="font-weight: 800; color: var(--primary-dark); font-size: 0.88rem;">${formatRM(ord.totalAmount)}</div>
+            <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600;">
+              Food: ${formatRM(ord.foodAmount !== undefined ? ord.foodAmount : ord.totalAmount)} • Rider: ${formatRM(ord.riderFee || 0)}${ord.riderFeePaidByCredit ? ' (Credit)' : ''}
+            </div>
+          </td>
           <td>
             <button class="badge ${ord.paymentStatus === 'Paid' ? 'badge-paid' : (ord.paymentStatus === 'Package' ? 'badge-package' : 'badge-unpaid')}" style="cursor: pointer; border: none; font-size: 0.7rem;" onclick="togglePaymentStatusAction('${ord.orderId}', '${ord.paymentStatus}')">
               ${ord.paymentStatus || 'Unpaid'}
@@ -261,7 +267,12 @@ function renderDashboard() {
               <span style="font-size: 0.95rem; font-weight: 800;">${ord.customerName}</span>
               ${ord.customerPhone ? `<div style="font-size: 0.75rem; color: var(--text-muted);">${ord.customerPhone}</div>` : ''}
             </div>
-            <span style="font-size: 1.05rem; font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</span>
+            <div style="text-align: right;">
+              <span style="font-size: 1.05rem; font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</span>
+              <div style="font-size: 0.68rem; color: var(--text-muted); font-weight: 600;">
+                Food: ${formatRM(ord.foodAmount !== undefined ? ord.foodAmount : ord.totalAmount)} • Rider: ${formatRM(ord.riderFee || 0)}${ord.riderFeePaidByCredit ? ' (Credit)' : ''}
+              </div>
+            </div>
           </div>
           ${address ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem;">📍 ${address}</div>` : ''}
           <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
@@ -326,10 +337,10 @@ function renderDashboard() {
   const riderGroups = {};
   dayOrders.forEach(ord => {
     const contact = ord.contactId ? cachedContacts[ord.contactId] : null;
-    const rId = (contact && contact.riderId) ? contact.riderId : 'unassigned';
+    const rId = ord.riderId || ((contact && contact.riderId) ? contact.riderId : 'unassigned');
     let rName = 'Unassigned';
     if (rId !== 'unassigned') {
-      rName = (cachedContacts[rId] && cachedContacts[rId].name) ? cachedContacts[rId].name : (contact.riderName || 'Rider');
+      rName = (cachedContacts[rId] && cachedContacts[rId].name) ? cachedContacts[rId].name : (ord.riderName || (contact && contact.riderName) || 'Rider');
     }
     if (!riderGroups[rId]) {
       riderGroups[rId] = { id: rId, name: rName, orders: [], dispatchedCount: 0 };

@@ -5,7 +5,7 @@ let cachedMenus = {};
 let cachedContacts = {};
 let cachedOrders = {};
 let cachedCreditLogs = {};
-let cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00 };
+let cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00, defaultRiderFee: 0, riderFees: {} };
 
 let dbListeners = [];
 let isDbInitialized = false;
@@ -70,7 +70,9 @@ async function initDatabase() {
           small: parseFloat(val.small) || 9.00,
           addonProtein: parseFloat(val.addonProtein) || 2.00,
           addonVege: parseFloat(val.addonVege) || 1.50,
-          addonRice: parseFloat(val.addonRice) || 1.00
+          addonRice: parseFloat(val.addonRice) || 1.00,
+          defaultRiderFee: (val.defaultRiderFee !== undefined && !isNaN(val.defaultRiderFee)) ? parseFloat(val.defaultRiderFee) : 0,
+          riderFees: val.riderFees || {}
         };
       }
       notifyDataChanged();
@@ -97,13 +99,15 @@ async function initDatabase() {
           small: parseFloat(parsed.small) || 9.00,
           addonProtein: parseFloat(parsed.addonProtein) || 2.00,
           addonVege: parseFloat(parsed.addonVege) || 1.50,
-          addonRice: parseFloat(parsed.addonRice) || 1.00
+          addonRice: parseFloat(parsed.addonRice) || 1.00,
+          defaultRiderFee: (parsed.defaultRiderFee !== undefined && !isNaN(parsed.defaultRiderFee)) ? parseFloat(parsed.defaultRiderFee) : 0,
+          riderFees: parsed.riderFees || {}
         };
       } catch (e) {
-        cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00 };
+        cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00, defaultRiderFee: 0, riderFees: {} };
       }
     } else {
-      cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00 };
+      cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00, defaultRiderFee: 0, riderFees: {} };
       localStorage.setItem('simplest_pricing', JSON.stringify(cachedPricing));
     }
 
@@ -446,7 +450,7 @@ async function dbDeleteOrder(orderId) {
 
 // Pricing Settings Actions
 function dbGetPricing() {
-  return cachedPricing || { standard: 12.00, small: 9.00 };
+  return cachedPricing || { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00, defaultRiderFee: 0, riderFees: {} };
 }
 
 async function dbSavePricing(pricing) {
@@ -456,6 +460,8 @@ async function dbSavePricing(pricing) {
     addonProtein: parseFloat(pricing.addonProtein) || 2.00,
     addonVege: parseFloat(pricing.addonVege) || 1.50,
     addonRice: parseFloat(pricing.addonRice) || 1.00,
+    defaultRiderFee: (pricing.defaultRiderFee !== undefined && !isNaN(pricing.defaultRiderFee)) ? parseFloat(pricing.defaultRiderFee) : 0,
+    riderFees: pricing.riderFees || {},
     updatedAt: Date.now()
   };
   notifyDataChanged();

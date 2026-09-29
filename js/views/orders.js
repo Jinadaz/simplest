@@ -1,6 +1,6 @@
 /* Simplest - Orders Management Controller */
 
-let orderViewScope = window.innerWidth >= 768 ? 'month' : 'day'; // Default to 'month' on desktop, 'day' on mobile
+let orderViewScope = 'day'; // Default to 'day' view
 let ordersDayOffset = 0; // 0 = Today, -1 = Yesterday, +1 = Tomorrow
 let ordersMonthOffset = 0; // 0 = Current Month, -1 = Prev Month, +1 = Next Month
 let orderFilterPayment = 'All';
@@ -40,6 +40,48 @@ function setOrderFilter(type, value) {
 function handleOrderSearchFilter(query) {
   orderSearchQuery = query;
   renderOrders();
+}
+
+function getOrderPriceBreakdown(ord) {
+  const isCreditFood = (ord.foodAmount === 0 && (ord.unitPrice === 0 || ord.paymentStatus === 'Package'));
+  const rawFoodAmt = (ord.foodAmount !== undefined && ord.foodAmount !== null)
+    ? parseFloat(ord.foodAmount)
+    : (ord.unitPrice !== undefined ? (parseFloat(ord.unitPrice) + (parseFloat(ord.addonPerMeal) || 0)) * (parseInt(ord.quantity) || 1) : (parseFloat(ord.totalAmount) - (parseFloat(ord.riderFee) || 0)));
+
+  const foodAmt = isNaN(rawFoodAmt) ? 0 : Math.max(0, rawFoodAmt);
+  const riderFee = parseFloat(ord.riderFee) || 0;
+  const riderPaidByCredit = !!ord.riderFeePaidByCredit;
+
+  let mealDisplay = formatRM(foodAmt);
+  let mealSub = '';
+  let mealBadge = formatRM(foodAmt);
+
+  if (isCreditFood) {
+    mealDisplay = 'RM 0.00';
+    mealSub = '💳 Package';
+    mealBadge = 'RM 0.00 (Pkg)';
+  } else if (ord.addons && ord.addons.length > 0 && ord.addonPerMeal > 0) {
+    mealSub = `+RM${(parseFloat(ord.addonPerMeal) * (parseInt(ord.quantity) || 1)).toFixed(2)} Add-on`;
+  }
+
+  let riderDisplay = formatRM(riderFee);
+  let riderSub = '';
+  let riderBadge = formatRM(riderFee);
+
+  if (riderPaidByCredit) {
+    riderSub = '💳 Credit';
+    riderBadge = `${formatRM(riderFee)} (Credit)`;
+  }
+
+  return {
+    mealDisplay,
+    mealSub,
+    mealBadge,
+    riderDisplay,
+    riderSub,
+    riderBadge,
+    totalDisplay: formatRM(ord.totalAmount || 0)
+  };
 }
 
 function renderOrders() {
@@ -102,8 +144,15 @@ function renderOrders() {
     const totalMonthOrders = monthOrders.length;
     const totalMonthMeals = monthOrders.reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
     const totalMonthRevenue = monthOrders.reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
+    const totalMonthMealRevenue = monthOrders.reduce((sum, ord) => {
+      const isCredit = (ord.foodAmount === 0 && (ord.unitPrice === 0 || ord.paymentStatus === 'Package'));
+      if (isCredit) return sum;
+      const amt = (ord.foodAmount !== undefined && ord.foodAmount !== null) ? parseFloat(ord.foodAmount) : (parseFloat(ord.totalAmount) - (parseFloat(ord.riderFee) || 0));
+      return sum + (isNaN(amt) ? 0 : Math.max(0, amt));
+    }, 0);
+    const totalMonthRiderRevenue = monthOrders.reduce((sum, ord) => sum + (parseFloat(ord.riderFee) || 0), 0);
     const paidOrders = monthOrders.filter(ord => ord.paymentStatus === 'Paid');
-    const unpaidOrders = monthOrders.filter(ord => ord.paymentStatus !== 'Paid');
+    const unpaidOrders = monthOrders.filter(ord => ord.paymentStatus === 'Unpaid');
     const paidRevenue = paidOrders.reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
     const unpaidRevenue = unpaidOrders.reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
 
@@ -135,6 +184,9 @@ function renderOrders() {
         <div class="monthly-stat-card">
           <span class="monthly-stat-label">Total Revenue</span>
           <span class="monthly-stat-value" style="color:var(--primary-dark);">${formatRM(totalMonthRevenue)}</span>
+          <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">
+            🍱 Meal: ${formatRM(totalMonthMealRevenue)} • 🛵 Rider: ${formatRM(totalMonthRiderRevenue)}
+          </div>
         </div>
         <div class="monthly-stat-card">
           <span class="monthly-stat-label">Paid Received</span>
@@ -166,9 +218,11 @@ function renderOrders() {
       const isPaid = ord.paymentStatus === 'Paid';
       const portion = ord.portion || 'Standard';
       const contact = ord.contactId ? cachedContacts[ord.contactId] : null;
-      const address = (contact && contact.address) ? contact.address : (ord.customerAddress || '');
-      const riderName = (contact && contact.riderId && cachedContacts[contact.riderId]) ? cachedContacts[contact.riderId].name : (contact && contact.riderName ? contact.riderName : '');
+      const address = ord.address || (contact && contact.address ? contact.address : (ord.customerAddress || ''));
+      const riderId = ord.riderId || (contact && contact.riderId ? contact.riderId : '');
+      const riderName = (riderId && cachedContacts[riderId]) ? cachedContacts[riderId].name : (ord.riderName || (contact && contact.riderName ? contact.riderName : ''));
       const isDispatched = ord.dispatched === true;
+      const breakdown = getOrderPriceBreakdown(ord);
 
       const waLink = createWhatsAppOrderLink(
         ord.customerPhone,
@@ -206,7 +260,17 @@ function renderOrders() {
               <span style="color: var(--text-muted); font-weight: 700;">× ${ord.quantity}</span>
             </div>
           </td>
-          <td style="font-weight: 800; color: var(--primary-dark); font-size: 0.95rem;">${formatRM(ord.totalAmount)}</td>
+          <td>
+            <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${breakdown.mealDisplay}</div>
+            ${breakdown.mealSub ? `<div style="font-size: 0.7rem; color: #059669; font-weight: 700;">${breakdown.mealSub}</div>` : ''}
+          </td>
+          <td>
+            <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${breakdown.riderDisplay}</div>
+            ${breakdown.riderSub ? `<div style="font-size: 0.7rem; color: #0284c7; font-weight: 700;">${breakdown.riderSub}</div>` : ''}
+          </td>
+          <td>
+            <div style="font-weight: 800; color: var(--primary-dark); font-size: 0.95rem;">${breakdown.totalDisplay}</div>
+          </td>
           <td>
             ${renderPaymentBadgeHtml(ord.paymentStatus, ord.orderId)}
           </td>
@@ -215,6 +279,7 @@ function renderOrders() {
               <span style="font-size: 0.78rem; font-weight: 700; color: ${riderName ? 'var(--primary-dark)' : 'var(--text-muted)'};">
                 ${riderName ? `🛵 ${riderName}` : '—'}
               </span>
+              ${ord.riderFee && parseFloat(ord.riderFee) > 0 ? `<span style="font-size: 0.68rem; color: #0284c7; font-weight: 700;">Fee: RM${parseFloat(ord.riderFee).toFixed(2)}</span>` : ''}
               <span class="badge ${isDispatched ? 'badge-paid' : 'badge-unpaid'}" style="font-size: 0.65rem; padding: 0.15rem 0.4rem; width: fit-content;">
                 ${isDispatched ? '✓ Sent' : '⏳ Pending'}
               </span>
@@ -236,18 +301,26 @@ function renderOrders() {
       // Mobile Card Item
       mobileCardsHtml += `
         <div class="mobile-data-card" data-order-id="${ord.orderId}">
-          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
+          <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.45rem; gap: 0.5rem;">
             <div>
               <span style="font-size: 1rem; font-weight: 800;">${ord.customerName}</span>
               <div style="font-size: 0.75rem; color: var(--text-muted);">${formatDateReadable(ord.date)} (${ord.day})</div>
             </div>
-            <span style="font-size: 1.1rem; font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</span>
+            <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+              <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
+                <span style="font-size: 0.725rem; background: var(--bg-surface-secondary, #f1f5f9); border: 1px solid var(--border-color); padding: 1px 6px; border-radius: 4px; font-weight: 700; color: var(--text-main);">🍱 ${breakdown.mealBadge}</span>
+                <span style="font-size: 0.725rem; background: #e0f2fe; border: 1px solid #bae6fd; padding: 1px 6px; border-radius: 4px; font-weight: 700; color: #0369a1;">🛵 ${breakdown.riderBadge}</span>
+              </div>
+              <div style="font-size: 1.05rem; font-weight: 800; color: var(--primary-dark); margin-top: 1px;">
+                Total: ${breakdown.totalDisplay}
+              </div>
+            </div>
           </div>
           <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
             🥗 ${ord.foodName}
             <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">${portion === 'Small' ? 'Small' : 'Standard'}</span>
             × ${ord.quantity}
-            ${riderName ? ` • 🛵 ${riderName}` : ''}
+            ${riderName ? ` • 🛵 ${riderName}${ord.riderFee && parseFloat(ord.riderFee) > 0 ? ` (Fee: RM${parseFloat(ord.riderFee).toFixed(2)})` : ''}` : ''}
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
             <div style="display: flex; gap: 0.35rem; align-items: center;">
@@ -279,7 +352,9 @@ function renderOrders() {
               <th>Meal Date</th>
               <th>Customer</th>
               <th>Food Item</th>
-              <th>Total Amount</th>
+              <th>🍱 Meal</th>
+              <th>🛵 Rider</th>
+              <th>Total</th>
               <th>Payment</th>
               <th>Rider Dispatch</th>
               <th>Actions</th>
@@ -370,9 +445,11 @@ function renderOrders() {
     const isPaid = ord.paymentStatus === 'Paid';
     const portion = ord.portion || 'Standard';
     const contact = ord.contactId ? cachedContacts[ord.contactId] : null;
-    const address = (contact && contact.address) ? contact.address : (ord.customerAddress || '');
-    const riderName = (contact && contact.riderId && cachedContacts[contact.riderId]) ? cachedContacts[contact.riderId].name : (contact && contact.riderName ? contact.riderName : '');
+    const address = ord.address || (contact && contact.address ? contact.address : (ord.customerAddress || ''));
+    const riderId = ord.riderId || (contact && contact.riderId ? contact.riderId : '');
+    const riderName = (riderId && cachedContacts[riderId]) ? cachedContacts[riderId].name : (ord.riderName || (contact && contact.riderName ? contact.riderName : ''));
     const isDispatched = ord.dispatched === true;
+    const breakdown = getOrderPriceBreakdown(ord);
 
     const waLink = createWhatsAppOrderLink(
       ord.customerPhone,
@@ -401,7 +478,17 @@ function renderOrders() {
             <span style="color: var(--text-muted);">× ${ord.quantity}</span>
           </div>
         </td>
-        <td style="font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</td>
+        <td>
+          <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${breakdown.mealDisplay}</div>
+          ${breakdown.mealSub ? `<div style="font-size: 0.7rem; color: #059669; font-weight: 700;">${breakdown.mealSub}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${breakdown.riderDisplay}</div>
+          ${breakdown.riderSub ? `<div style="font-size: 0.7rem; color: #0284c7; font-weight: 700;">${breakdown.riderSub}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-weight: 800; color: var(--primary-dark); font-size: 0.95rem;">${breakdown.totalDisplay}</div>
+        </td>
         <td>
           ${renderPaymentBadgeHtml(ord.paymentStatus, ord.orderId)}
         </td>
@@ -420,14 +507,26 @@ function renderOrders() {
 
     mobileCardsHtml += `
       <div class="mobile-data-card" data-order-id="${ord.orderId}">
-        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.4rem;">
-          <span style="font-size: 1rem; font-weight: 800;">${ord.customerName}</span>
-          <span style="font-size: 1.1rem; font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</span>
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.45rem; gap: 0.5rem;">
+          <div>
+            <span style="font-size: 1rem; font-weight: 800;">${ord.customerName}</span>
+            <div style="font-size: 0.75rem; color: var(--text-muted);">${ord.day}, ${formatDateReadable(ord.date)}</div>
+          </div>
+          <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
+            <div style="display: flex; gap: 0.35rem; align-items: center; flex-wrap: wrap; justify-content: flex-end;">
+              <span style="font-size: 0.725rem; background: var(--bg-surface-secondary, #f1f5f9); border: 1px solid var(--border-color); padding: 1px 6px; border-radius: 4px; font-weight: 700; color: var(--text-main);">🍱 ${breakdown.mealBadge}</span>
+              <span style="font-size: 0.725rem; background: #e0f2fe; border: 1px solid #bae6fd; padding: 1px 6px; border-radius: 4px; font-weight: 700; color: #0369a1;">🛵 ${breakdown.riderBadge}</span>
+            </div>
+            <div style="font-size: 1.05rem; font-weight: 800; color: var(--primary-dark); margin-top: 1px;">
+              Total: ${breakdown.totalDisplay}
+            </div>
+          </div>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-          ${ord.day}, ${formatDateReadable(ord.date)} • 🥗 ${ord.foodName}
+          🥗 ${ord.foodName}
           <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">${portion === 'Small' ? 'Small' : 'Standard'}</span>
           × ${ord.quantity}
+          ${riderName ? ` • 🛵 ${riderName}${ord.riderFee && parseFloat(ord.riderFee) > 0 ? ` (Fee: RM${parseFloat(ord.riderFee).toFixed(2)})` : ''}` : ''}
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
           <div style="display: flex; gap: 0.35rem;">
@@ -455,7 +554,9 @@ function renderOrders() {
             <th>Customer</th>
             <th>Meal Date</th>
             <th>Food Item</th>
-            <th>Total Amount</th>
+            <th>🍱 Meal</th>
+            <th>🛵 Rider</th>
+            <th>Total</th>
             <th>Payment Status</th>
             <th>Actions</th>
           </tr>
@@ -488,10 +589,15 @@ function renderPaymentBadgeHtml(status, orderId) {
 }
 
 async function togglePaymentStatusAction(orderId, currentStatus) {
+  const ord = cachedOrders[orderId];
   let nextStatus = 'Paid';
-  if (currentStatus === 'Unpaid') nextStatus = 'Paid';
-  else if (currentStatus === 'Paid') nextStatus = 'Package';
-  else if (currentStatus === 'Package') nextStatus = 'Unpaid';
+  if (ord && parseFloat(ord.totalAmount) > 0) {
+    nextStatus = (currentStatus === 'Paid') ? 'Unpaid' : 'Paid';
+  } else {
+    if (currentStatus === 'Unpaid') nextStatus = 'Paid';
+    else if (currentStatus === 'Paid') nextStatus = 'Package';
+    else if (currentStatus === 'Package') nextStatus = 'Unpaid';
+  }
 
   await dbUpdateOrderStatus(orderId, nextStatus, null);
   renderOrders();
@@ -536,10 +642,15 @@ function handleOrderCustomerSearch(query) {
     const credTag = (stdC > 0 || smlC > 0)
       ? `<span style="font-size:0.725rem; color:#047857; font-weight:800; background:#dcfce7; padding:2px 6px; border-radius:4px; margin-left:6px;">💳 ${stdC} Std / ${smlC} Sml</span>`
       : '';
+    const has2Addr = c.address && c.address2 && c.address2.trim();
+    const addrTag = has2Addr
+      ? `<span style="font-size:0.7rem; color:#0284c7; background:#e0f2fe; padding:1px 6px; border-radius:4px; margin-left:4px; font-weight:700;">📍 2 Addr</span>`
+      : '';
 
     item.innerHTML = `
       <div>
         <strong>${c.name}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${c.phone || 'No phone'})</span>
+        ${addrTag}
         ${credTag}
       </div>
     `;
@@ -579,6 +690,126 @@ function checkCustomerHasCreditForPortion(customer, portion) {
   return stdC > 0;
 }
 
+function setupOrderAddressSelector(customer) {
+  const group = document.getElementById('order-address-selector-group');
+  if (!group) return;
+
+  const addr1 = (customer.address || '').trim();
+  const addr2 = (customer.address2 || '').trim();
+
+  // If customer has BOTH address 1 and address 2
+  if (addr1 && addr2) {
+    group.style.display = 'block';
+
+    const text1 = document.getElementById('order-addr-text-1');
+    const rider1El = document.getElementById('order-addr-rider-1');
+    const text2 = document.getElementById('order-addr-text-2');
+    const rider2El = document.getElementById('order-addr-rider-2');
+
+    const rider1Name = (customer.riderId && cachedContacts[customer.riderId])
+      ? cachedContacts[customer.riderId].name
+      : (customer.riderName || 'No Rider');
+    const rider2Name = (customer.riderId2 && cachedContacts[customer.riderId2])
+      ? cachedContacts[customer.riderId2].name
+      : (customer.riderName2 || 'No Rider');
+
+    if (text1) text1.textContent = addr1;
+    if (rider1El) rider1El.textContent = `🛵 Rider: ${rider1Name}`;
+    if (text2) text2.textContent = addr2;
+    if (rider2El) rider2El.textContent = `🛵 Rider: ${rider2Name}`;
+
+    // Default select Address 1
+    selectOrderDeliveryAddress(1);
+  } else {
+    group.style.display = 'none';
+    const hiddenInput = document.getElementById('order-input-selected-address-num');
+    if (hiddenInput) hiddenInput.value = '1';
+    refreshOrderRiderOptions(customer.riderId || customer.riderId2 || '');
+  }
+}
+
+function selectOrderDeliveryAddress(num) {
+  const hiddenInput = document.getElementById('order-input-selected-address-num');
+  if (hiddenInput) hiddenInput.value = String(num);
+
+  const card1 = document.getElementById('order-addr-card-1');
+  const card2 = document.getElementById('order-addr-card-2');
+  if (card1) card1.classList.toggle('active', num === 1);
+  if (card2) card2.classList.toggle('active', num === 2);
+
+  const contactId = document.getElementById('order-input-customer')?.value;
+  const customer = contactId ? cachedContacts[contactId] : null;
+  if (customer) {
+    const assignedRiderId = (num === 2) ? (customer.riderId2 || '') : (customer.riderId || '');
+    refreshOrderRiderOptions(assignedRiderId);
+  }
+}
+
+function refreshOrderRiderOptions(chosenRiderId = '') {
+  const selectEl = document.getElementById('order-select-rider');
+  if (!selectEl) return;
+
+  const pricing = dbGetPricing();
+  const riderFees = pricing.riderFees || {};
+  const defRiderFee = (pricing.defaultRiderFee !== undefined && !isNaN(pricing.defaultRiderFee))
+    ? parseFloat(pricing.defaultRiderFee)
+    : 0;
+
+  const riders = Object.entries(cachedContacts || {})
+    .map(([id, c]) => ({ id, ...c }))
+    .filter(c => c.isRider === true || c.role === 'rider');
+
+  let optionsHtml = '<option value="">-- No Rider Assigned (RM 0.00) --</option>';
+  riders.forEach(r => {
+    let fee = defRiderFee;
+    if (riderFees[r.id] !== undefined && riderFees[r.id] !== null && !isNaN(riderFees[r.id])) {
+      fee = parseFloat(riderFees[r.id]);
+    }
+    const isSelected = (r.id === chosenRiderId);
+    optionsHtml += `<option value="${r.id}" ${isSelected ? 'selected' : ''}>🛵 ${r.name} (${r.phone || 'No phone'}) — Fee: RM ${fee.toFixed(2)}</option>`;
+  });
+
+  selectEl.innerHTML = optionsHtml;
+
+  const riderFeeInput = document.getElementById('order-input-rider-fee');
+  if (riderFeeInput) {
+    if (chosenRiderId) {
+      let fee = defRiderFee;
+      if (riderFees[chosenRiderId] !== undefined && riderFees[chosenRiderId] !== null && !isNaN(riderFees[chosenRiderId])) {
+        fee = parseFloat(riderFees[chosenRiderId]);
+      }
+      riderFeeInput.value = fee.toFixed(2);
+    } else {
+      riderFeeInput.value = '0.00';
+    }
+  }
+
+  updateOrderFormCalculations();
+}
+
+function handleOrderRiderSelectChange(selectedRiderId) {
+  const pricing = dbGetPricing();
+  const riderFees = pricing.riderFees || {};
+  const defRiderFee = (pricing.defaultRiderFee !== undefined && !isNaN(pricing.defaultRiderFee))
+    ? parseFloat(pricing.defaultRiderFee)
+    : 0;
+
+  const riderFeeInput = document.getElementById('order-input-rider-fee');
+  if (riderFeeInput) {
+    if (selectedRiderId) {
+      let fee = defRiderFee;
+      if (riderFees[selectedRiderId] !== undefined && riderFees[selectedRiderId] !== null && !isNaN(riderFees[selectedRiderId])) {
+        fee = parseFloat(riderFees[selectedRiderId]);
+      }
+      riderFeeInput.value = fee.toFixed(2);
+    } else {
+      riderFeeInput.value = '0.00';
+    }
+  }
+
+  updateOrderFormCalculations();
+}
+
 function selectOrderCustomer(customer) {
   document.getElementById('order-input-customer').value = customer.id;
   document.getElementById('order-input-customer-search').value = `${customer.name} (${customer.phone || ''})`;
@@ -586,6 +817,7 @@ function selectOrderCustomer(customer) {
 
   const stdC = parseInt(customer.creditStandard) || 0;
   const smlC = parseInt(customer.creditSmall) || 0;
+  const rdrC = parseFloat(customer.creditRider) || 0;
   const currentPortion = selectedOrderPortion || 'Standard';
   const hasCreditForPortion = checkCustomerHasCreditForPortion(customer, currentPortion);
 
@@ -595,24 +827,56 @@ function selectOrderCustomer(customer) {
   if (infoBadge) {
     infoBadge.style.display = 'block';
     let credText = '';
-    if (stdC > 0 || smlC > 0) {
-      credText = ` • <span style="color:#047857; font-weight:800; background:#dcfce7; padding:2px 6px; border-radius:4px;">💳 Credit: ${stdC} Std, ${smlC} Small</span>`;
+    if (stdC > 0 || smlC > 0 || rdrC > 0) {
+      const parts = [];
+      if (stdC > 0 || smlC > 0) parts.push(`💳 ${stdC} Std, ${smlC} Sml`);
+      if (rdrC > 0) parts.push(`🛵 RM ${rdrC.toFixed(2)} Rider`);
+      credText = ` • <span style="color:#047857; font-weight:800; background:#dcfce7; padding:2px 6px; border-radius:4px;">${parts.join(' • ')}</span>`;
     } else {
       credText = ` • <span style="color:#64748b; font-size:0.75rem;">(No Credit Balance)</span>`;
     }
     infoBadge.innerHTML = `Selected: <strong>${customer.name}</strong> (${customer.phone || 'No phone'})${credText}`;
   }
 
+  // Handle Meal Credit Box in Add Order modal
+  const mealCreditBox = document.getElementById('order-meal-credit-box');
+  const mealCreditAvail = document.getElementById('order-meal-credit-available');
+  const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
+  if (mealCreditBox && mealCreditAvail && mealCreditCheckbox) {
+    if (hasCreditForPortion) {
+      mealCreditBox.style.display = 'block';
+      const balStr = currentPortion === 'Small' ? `${smlC} Small` : `${stdC} Std`;
+      mealCreditAvail.textContent = `Bal: ${balStr}`;
+      mealCreditCheckbox.checked = true;
+    } else {
+      mealCreditBox.style.display = 'none';
+      mealCreditCheckbox.checked = false;
+    }
+  }
+
+  // Handle Rider Credit Box in Add Order modal
+  const rdrCreditBox = document.getElementById('order-rider-credit-box');
+  const rdrCreditAvail = document.getElementById('order-rider-credit-available');
+  const rdrCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
+  if (rdrCreditBox && rdrCreditAvail && rdrCreditCheckbox) {
+    if (rdrC > 0) {
+      rdrCreditBox.style.display = 'block';
+      rdrCreditAvail.textContent = `Bal: RM ${rdrC.toFixed(2)}`;
+      rdrCreditCheckbox.checked = true; // Auto-check if customer has rider credit!
+    } else {
+      rdrCreditBox.style.display = 'none';
+      rdrCreditCheckbox.checked = false;
+    }
+  }
+
+  // Setup address selector if customer has two addresses
+  setupOrderAddressSelector(customer);
+
   if (customer.remark) {
     document.getElementById('order-input-remark').value = customer.remark;
   }
 
-  // Auto-select Package payment status if customer has meal credit for chosen portion, otherwise Unpaid
-  if (hasCreditForPortion) {
-    selectOrderPaymentStatus('Package');
-  } else {
-    selectOrderPaymentStatus('Unpaid');
-  }
+  updateOrderFormCalculations();
 }
 
 // Close Customer Search Dropdown when clicking outside
@@ -669,14 +933,19 @@ function selectOrderPortion(portion) {
 
   if (customer) {
     const hasCreditForPortion = checkCustomerHasCreditForPortion(customer, portion);
-    setPackagePaymentOptionEnabled(hasCreditForPortion);
-
-    const currentPayment = document.getElementById('order-input-payment')?.value;
-    if (hasCreditForPortion && currentPayment !== 'Paid') {
-      selectOrderPaymentStatus('Package');
-    } else if (!hasCreditForPortion && currentPayment === 'Package') {
-      selectOrderPaymentStatus('Unpaid');
-      showMaterialToast(`Customer has 0 ${portion} credits. Defaulted payment to Unpaid.`, 'info');
+    const mealCreditBox = document.getElementById('order-meal-credit-box');
+    const mealCreditAvail = document.getElementById('order-meal-credit-available');
+    const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
+    if (mealCreditBox && mealCreditAvail && mealCreditCheckbox) {
+      if (hasCreditForPortion) {
+        mealCreditBox.style.display = 'block';
+        const balStr = portion === 'Small' ? `${customer.creditSmall || 0} Small` : `${customer.creditStandard || 0} Std`;
+        mealCreditAvail.textContent = `Bal: ${balStr}`;
+        mealCreditCheckbox.checked = true;
+      } else {
+        mealCreditBox.style.display = 'none';
+        mealCreditCheckbox.checked = false;
+      }
     }
   }
 
@@ -684,7 +953,7 @@ function selectOrderPortion(portion) {
   updateOrderFormCalculations();
 }
 
-function selectOrderPaymentStatus(status) {
+function selectOrderPaymentStatus(status, triggerCalc = true) {
   const packageCard = document.getElementById('payment-radio-card-package');
   if (status === 'Package' && packageCard && packageCard.classList.contains('disabled')) {
     return;
@@ -707,7 +976,9 @@ function selectOrderPaymentStatus(status) {
   if (paidRadio) paidRadio.checked = (status === 'Paid');
   if (packageRadio) packageRadio.checked = (status === 'Package');
 
-  updateOrderFormCalculations();
+  if (triggerCalc) {
+    updateOrderFormCalculations();
+  }
 }
 
 // Render 5 Mon-Fri Meal Date Cards inside Add Order modal (Multi-Select Supported)
@@ -816,12 +1087,16 @@ function openAddOrderModal(preselectedContactId = null) {
   const infoBadge = document.getElementById('order-customer-selected-info');
   if (infoBadge) infoBadge.style.display = 'none';
 
-  if (preselectedContactId && cachedContacts[preselectedContactId]) {
-    selectOrderCustomer(cachedContacts[preselectedContactId]);
-  } else {
-    setPackagePaymentOptionEnabled(false);
-    selectOrderPaymentStatus('Unpaid');
-  }
+  const addrGroup = document.getElementById('order-address-selector-group');
+  if (addrGroup) addrGroup.style.display = 'none';
+  const addrNumInput = document.getElementById('order-input-selected-address-num');
+  if (addrNumInput) addrNumInput.value = '1';
+
+  // Reset Meal credit option box
+  const mealCreditBox = document.getElementById('order-meal-credit-box');
+  const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
+  if (mealCreditBox) mealCreditBox.style.display = 'none';
+  if (mealCreditCheckbox) mealCreditCheckbox.checked = false;
 
   // Reset portion selector to Standard
   selectedOrderPortion = 'Standard';
@@ -854,6 +1129,22 @@ function openAddOrderModal(preselectedContactId = null) {
   // Refresh addon price tags
   refreshAddonPriceTags();
 
+  // Reset Rider selection & fee
+  refreshOrderRiderOptions('');
+
+  // Reset Rider credit option box
+  const rdrCreditBox = document.getElementById('order-rider-credit-box');
+  const rdrCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
+  if (rdrCreditBox) rdrCreditBox.style.display = 'none';
+  if (rdrCreditCheckbox) rdrCreditCheckbox.checked = false;
+
+  setPackagePaymentOptionEnabled(false);
+  selectOrderPaymentStatus('Unpaid', false);
+
+  if (preselectedContactId && cachedContacts[preselectedContactId]) {
+    selectOrderCustomer(cachedContacts[preselectedContactId]);
+  }
+
   // Clear date selection so no date is selected by default
   selectedOrderDates.clear();
 
@@ -875,11 +1166,19 @@ function closeAddOrderModal() {
 function updateOrderFormCalculations() {
   const quantity = parseInt(document.getElementById('order-input-quantity').value) || 1;
   const datesArr = Array.from(selectedOrderDates);
-  const hiddenPayment = document.getElementById('order-input-payment');
-  const isCreditMeal = (hiddenPayment && hiddenPayment.value === 'Package');
+  const datesCount = datesArr.length;
+  const totalMealsCount = datesCount * quantity;
+
+  const contactId = document.getElementById('order-input-customer')?.value;
+  const customer = contactId ? cachedContacts[contactId] : null;
+  const portion = selectedOrderPortion || 'Standard';
+
+  const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
+  const hasCreditForPortion = checkCustomerHasCreditForPortion(customer, portion);
+  const isUseMealCredit = !!(customer && hasCreditForPortion && mealCreditCheckbox && mealCreditCheckbox.checked);
 
   const pricing = dbGetPricing();
-  const unitPrice = isCreditMeal ? 0 : (selectedOrderPortion === 'Small' ? pricing.small : pricing.standard);
+  const unitPrice = isUseMealCredit ? 0 : (portion === 'Small' ? pricing.small : pricing.standard);
 
   // Add-ons are ALWAYS charged, even for Package/credit meals
   let addonPerMeal = 0;
@@ -887,17 +1186,83 @@ function updateOrderFormCalculations() {
   if (selectedOrderAddons.has('vege')) addonPerMeal += parseFloat(pricing.addonVege) || 1.50;
   if (selectedOrderAddons.has('rice')) addonPerMeal += parseFloat(pricing.addonRice) || 1.00;
 
-  const datesCount = datesArr.length;
-  const totalMealsCount = datesCount * quantity;
-  const total = (unitPrice + addonPerMeal) * datesCount * quantity;
+  // Rider Delivery Fee & Credit Calculation
+  const riderFeeInput = document.getElementById('order-input-rider-fee');
+  const riderFee = riderFeeInput ? (parseFloat(riderFeeInput.value) || 0) : 0;
+  const totalRiderFee = riderFee * datesCount;
 
-  // Set hidden input
+  const currentRdrCredit = customer ? (parseFloat(customer.creditRider) || 0) : 0;
+  const useRiderCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
+  const isUseRiderCredit = !!(customer && useRiderCreditCheckbox && useRiderCreditCheckbox.checked && currentRdrCredit > 0);
+
+  let riderCoveredByCredit = 0;
+  if (isUseRiderCredit) {
+    riderCoveredByCredit = Math.min(currentRdrCredit, totalRiderFee);
+  }
+  const riderPayable = totalRiderFee - riderCoveredByCredit;
+
+  // Food Total
+  const foodPerDate = (unitPrice + addonPerMeal) * quantity;
+  const foodTotal = foodPerDate * datesCount;
+
+  const total = foodTotal + riderPayable;
+
+  // Dynamic Payment Status Label & Options
+  const lblPaymentStatus = document.getElementById('order-lbl-payment-status');
+  const hintPaymentStatus = document.getElementById('order-payment-status-hint');
+  const hiddenPaymentInput = document.getElementById('order-input-payment');
+  let currentPayment = hiddenPaymentInput ? hiddenPaymentInput.value : 'Unpaid';
+
+  if (isUseMealCredit) {
+    if (total === 0) {
+      // Both meal and rider covered by credit (or free delivery)
+      setPackagePaymentOptionEnabled(true);
+      selectOrderPaymentStatus('Package', false);
+      if (lblPaymentStatus) lblPaymentStatus.textContent = 'Payment Status *';
+      if (hintPaymentStatus) {
+        hintPaymentStatus.textContent = '✓ Covered by Package Credits';
+        hintPaymentStatus.style.color = '#047857';
+      }
+    } else {
+      // Meal covered by credit, but rider fee or add-on is payable in cash!
+      // User can choose Paid or Unpaid for the rider fee
+      setPackagePaymentOptionEnabled(false); // Disable Package since cash is payable
+      if (currentPayment === 'Package') {
+        selectOrderPaymentStatus('Unpaid', false);
+      }
+      if (lblPaymentStatus) {
+        if (riderPayable > 0 && foodTotal === 0) {
+          lblPaymentStatus.textContent = `Rider Fee Payment (${formatRM(riderPayable)}) *`;
+        } else if (riderPayable > 0) {
+          lblPaymentStatus.textContent = `Payment Status (${formatRM(total)}) *`;
+        } else {
+          lblPaymentStatus.textContent = `Payment Status (Add-ons: ${formatRM(total)}) *`;
+        }
+      }
+      if (hintPaymentStatus) {
+        hintPaymentStatus.textContent = '🍱 Food in Package • Rider fee payable';
+        hintPaymentStatus.style.color = '#0284c7';
+      }
+    }
+  } else {
+    // Normal cash order
+    setPackagePaymentOptionEnabled(false);
+    if (currentPayment === 'Package') {
+      selectOrderPaymentStatus('Unpaid', false);
+    }
+    if (lblPaymentStatus) lblPaymentStatus.textContent = 'Payment Status *';
+    if (hintPaymentStatus) {
+      hintPaymentStatus.textContent = '';
+    }
+  }
+
+  // Set hidden input date
   const hiddenDateInput = document.getElementById('order-input-date');
   if (hiddenDateInput) hiddenDateInput.value = datesArr.join(',');
 
   const titleEl = document.getElementById('order-selected-food-title');
   if (titleEl) {
-    const portionTag = selectedOrderPortion === 'Small' ? 'Small' : 'Standard';
+    const portionTag = portion === 'Small' ? 'Small' : 'Standard';
     if (datesArr.length === 0) {
       titleEl.textContent = 'Please select meal date(s)';
     } else if (datesArr.length === 1) {
@@ -913,14 +1278,28 @@ function updateOrderFormCalculations() {
 
   const totalEl = document.getElementById('order-display-totalAmount');
   if (totalEl) {
-    if (isCreditMeal && addonPerMeal === 0) {
-      // Pure credit meal, no add-ons
-      totalEl.textContent = 'RM 0.00 (Credit Meal)';
-    } else if (isCreditMeal && addonPerMeal > 0 && datesCount > 0) {
-      // Credit meal + add-ons: meal is free, only add-ons charged
-      totalEl.textContent = `${formatRM(total)} (Add-ons only)`;
-    } else if (addonPerMeal > 0 && datesCount > 0) {
-      totalEl.textContent = `${formatRM(total)} (incl. add-ons)`;
+    const notes = [];
+    if (isUseMealCredit) {
+      notes.push('Meal: Package');
+    } else if (datesCount > 0) {
+      notes.push(`Food: RM${foodTotal.toFixed(2)}`);
+    }
+    if (addonPerMeal > 0) notes.push('Add-ons');
+
+    if (totalRiderFee > 0) {
+      if (isUseRiderCredit && riderCoveredByCredit >= totalRiderFee) {
+        notes.push('Rider: Covered by Credit');
+      } else if (isUseRiderCredit && riderCoveredByCredit > 0) {
+        notes.push(`Rider: RM${riderPayable.toFixed(2)} (RM${riderCoveredByCredit.toFixed(2)} from Credit)`);
+      } else {
+        notes.push(`Rider: RM${totalRiderFee.toFixed(2)}`);
+      }
+    }
+
+    if (datesCount === 0) {
+      totalEl.textContent = 'RM 0.00';
+    } else if (notes.length > 0) {
+      totalEl.textContent = `${formatRM(total)} (${notes.join(' • ')})`;
     } else {
       totalEl.textContent = formatRM(total);
     }
@@ -988,55 +1367,56 @@ async function saveOrderSubmit(event) {
   let currentStdCredit = parseInt(customer.creditStandard) || 0;
   let currentSmlCredit = parseInt(customer.creditSmall) || 0;
 
+  const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
+  const isUseMealCredit = !!(mealCreditCheckbox && mealCreditCheckbox.checked);
+
   let creditDeducted = 0;
   let newStdCredit = currentStdCredit;
   let newSmlCredit = currentSmlCredit;
 
-  if (paymentStatus === 'Package') {
-    if (portion === 'Standard' && currentStdCredit <= 0) {
-      showMaterialToast(`Cannot use Package for Standard portion: Customer has 0 Standard credits (Current: 0 Std, ${currentSmlCredit} Small).`, 'warning');
-      return;
+  if (isUseMealCredit) {
+    if (portion === 'Standard') {
+      if (currentStdCredit <= 0) {
+        showMaterialToast(`Cannot use Package for Standard portion: Customer has 0 Standard credits (Current: 0 Std, ${currentSmlCredit} Small).`, 'warning');
+        return;
+      }
+      creditDeducted = Math.min(currentStdCredit, totalMealsToOrder);
+      newStdCredit = currentStdCredit - creditDeducted;
+    } else if (portion === 'Small') {
+      if (currentSmlCredit <= 0) {
+        showMaterialToast(`Cannot use Package for Small portion: Customer has 0 Small credits (Current: ${currentStdCredit} Std, 0 Small).`, 'warning');
+        return;
+      }
+      creditDeducted = Math.min(currentSmlCredit, totalMealsToOrder);
+      newSmlCredit = currentSmlCredit - creditDeducted;
     }
-    if (portion === 'Small' && currentSmlCredit <= 0) {
-      showMaterialToast(`Cannot use Package for Small portion: Customer has 0 Small credits (Current: ${currentStdCredit} Std, 0 Small).`, 'warning');
-      return;
-    }
-  }
 
-  if (portion === 'Standard' && currentStdCredit > 0) {
-    creditDeducted = Math.min(currentStdCredit, totalMealsToOrder);
-    newStdCredit = currentStdCredit - creditDeducted;
-  } else if (portion === 'Small' && currentSmlCredit > 0) {
-    creditDeducted = Math.min(currentSmlCredit, totalMealsToOrder);
-    newSmlCredit = currentSmlCredit - creditDeducted;
-  }
-
-  // If credit was deducted, update the contact record in DB and log transaction
-  if (creditDeducted > 0) {
-    await dbUpdateContact(contactId, {
-      creditStandard: newStdCredit,
-      creditSmall: newSmlCredit
-    });
-
-    if (typeof dbAddCreditLog === 'function') {
-      await dbAddCreditLog({
-        contactId: contactId,
-        customerName: customer.name,
-        type: 'consume',
-        action: 'Meal Consumed',
-        deltaStandard: portion === 'Standard' ? -creditDeducted : 0,
-        deltaSmall: portion === 'Small' ? -creditDeducted : 0,
-        newStandard: newStdCredit,
-        newSmall: newSmlCredit,
-        remark: `Used for ${totalMealsToOrder} meal(s) order (${portion})`
+    // If credit was deducted, update the contact record in DB and log transaction
+    if (creditDeducted > 0) {
+      await dbUpdateContact(contactId, {
+        creditStandard: newStdCredit,
+        creditSmall: newSmlCredit
       });
+
+      if (typeof dbAddCreditLog === 'function') {
+        await dbAddCreditLog({
+          contactId: contactId,
+          customerName: customer.name,
+          type: 'consume',
+          action: 'Meal Consumed',
+          deltaStandard: portion === 'Standard' ? -creditDeducted : 0,
+          deltaSmall: portion === 'Small' ? -creditDeducted : 0,
+          newStandard: newStdCredit,
+          newSmall: newSmlCredit,
+          remark: `Used for ${totalMealsToOrder} meal(s) order (${portion})`
+        });
+      }
     }
   }
 
-  // Determine pricing & payment status based on Package / Credit status
-  const isCreditMeal = (paymentStatus === 'Package' || creditDeducted > 0);
+  // Determine pricing based on Package / Credit status
   const pricing = dbGetPricing();
-  const unitPrice = isCreditMeal ? 0 : (portion === 'Small' ? pricing.small : pricing.standard);
+  const unitPrice = isUseMealCredit ? 0 : (portion === 'Small' ? pricing.small : pricing.standard);
 
   // Add-on cost per meal — ALWAYS charged even for Package/credit meals
   const addonsArr = Array.from(selectedOrderAddons);
@@ -1045,22 +1425,99 @@ async function saveOrderSubmit(event) {
   if (selectedOrderAddons.has('vege')) addonPerMeal += parseFloat(pricing.addonVege) || 1.50;
   if (selectedOrderAddons.has('rice')) addonPerMeal += parseFloat(pricing.addonRice) || 1.00;
 
-  // Total: base meal (0 if credit) + add-ons
-  const totalAmount = (unitPrice + addonPerMeal) * quantity;
+  // Rider Delivery Fee & Rider Credit Deduction
+  const riderFeeInput = document.getElementById('order-input-rider-fee');
+  const riderFee = riderFeeInput ? (parseFloat(riderFeeInput.value) || 0) : 0;
 
-  let finalPaymentStatus = paymentStatus;
-  let creditNote = '';
+  const currentRdrCredit = parseFloat(customer.creditRider) || 0;
+  const useRiderCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
+  const isUseRiderCredit = !!(useRiderCreditCheckbox && useRiderCreditCheckbox.checked && currentRdrCredit > 0);
 
-  if (isCreditMeal) {
-    finalPaymentStatus = 'Package';
-    if (creditDeducted > 0) {
-      creditNote = `Paid via Meal Credit (${creditDeducted} deducted)`;
-    } else {
-      creditNote = 'Paid via Meal Credit';
+  const totalRiderFeeForDates = riderFee * selectedDates.length;
+  let riderCreditDeducted = 0;
+  let newRiderCredit = currentRdrCredit;
+  let riderFeePaidByCredit = false;
+
+  if (isUseRiderCredit && totalRiderFeeForDates > 0) {
+    riderCreditDeducted = Math.min(currentRdrCredit, totalRiderFeeForDates);
+    newRiderCredit = currentRdrCredit - riderCreditDeducted;
+    riderFeePaidByCredit = (riderCreditDeducted >= totalRiderFeeForDates);
+
+    // Update customer's rider credit in DB
+    await dbUpdateContact(contactId, {
+      creditStandard: newStdCredit,
+      creditSmall: newSmlCredit,
+      creditRider: newRiderCredit
+    });
+
+    if (typeof dbAddCreditLog === 'function') {
+      await dbAddCreditLog({
+        contactId: contactId,
+        customerName: customer.name,
+        type: 'consume',
+        action: 'Rider Fee Consumed',
+        deltaStandard: 0,
+        deltaSmall: 0,
+        deltaRider: -riderCreditDeducted,
+        newStandard: newStdCredit,
+        newSmall: newSmlCredit,
+        newRider: newRiderCredit,
+        remark: `Rider fee for ${selectedDates.length} delivery(ies)`
+      });
     }
   }
 
+  // Food and Rider amounts calculated separately
+  const foodAmount = (unitPrice + addonPerMeal) * quantity;
+  const riderPayablePerDate = (riderCreditDeducted >= totalRiderFeeForDates)
+    ? 0
+    : Math.max(0, riderFee - (riderCreditDeducted / selectedDates.length));
+  const totalAmount = foodAmount + riderPayablePerDate;
+
+  // Determine final payment status:
+  // If totalAmount is 0 (covered by Package credits), status is 'Package'
+  // If totalAmount > 0 (e.g. rider fee payable), respect user's selection: 'Paid' or 'Unpaid'!
+  let finalPaymentStatus = paymentStatus;
+  if (totalAmount === 0 && (isUseMealCredit || riderFeePaidByCredit)) {
+    finalPaymentStatus = 'Package';
+  } else {
+    finalPaymentStatus = (paymentStatus === 'Paid') ? 'Paid' : 'Unpaid';
+  }
+
   const createdOrderIds = [];
+
+  // Determine delivery address and assigned rider (supports Address 1 vs Address 2)
+  let finalAddress = (customer.address || '').trim();
+  let finalRiderId = customer.riderId || '';
+  let finalRiderName = customer.riderName || ((customer.riderId && cachedContacts[customer.riderId]) ? cachedContacts[customer.riderId].name : '');
+
+  const hasTwoAddresses = customer.address && customer.address2 && customer.address2.trim();
+  if (hasTwoAddresses) {
+    const selectedNum = document.getElementById('order-input-selected-address-num') ? document.getElementById('order-input-selected-address-num').value : '1';
+    if (selectedNum === '2') {
+      finalAddress = customer.address2.trim();
+      finalRiderId = customer.riderId2 || '';
+      finalRiderName = customer.riderName2 || ((customer.riderId2 && cachedContacts[customer.riderId2]) ? cachedContacts[customer.riderId2].name : '');
+    } else {
+      finalAddress = customer.address ? customer.address.trim() : '';
+      finalRiderId = customer.riderId || '';
+      finalRiderName = customer.riderName || ((customer.riderId && cachedContacts[customer.riderId]) ? cachedContacts[customer.riderId].name : '');
+    }
+  } else if (!finalAddress && customer.address2) {
+    finalAddress = customer.address2.trim();
+    finalRiderId = customer.riderId2 || '';
+    finalRiderName = customer.riderName2 || ((customer.riderId2 && cachedContacts[customer.riderId2]) ? cachedContacts[customer.riderId2].name : '');
+  }
+
+  // Check if rider is overridden in the order rider selector
+  const chosenRiderSelect = document.getElementById('order-select-rider');
+  if (chosenRiderSelect && chosenRiderSelect.value) {
+    finalRiderId = chosenRiderSelect.value;
+    finalRiderName = (cachedContacts[finalRiderId] ? cachedContacts[finalRiderId].name : '') || finalRiderName;
+  } else if (chosenRiderSelect && chosenRiderSelect.value === '') {
+    finalRiderId = '';
+    finalRiderName = '';
+  }
 
   for (const dateStr of selectedDates) {
     const menuObj = dbGetMenuByDate(dateStr);
@@ -1069,14 +1526,26 @@ async function saveOrderSubmit(event) {
     const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
 
     let finalRemark = remark || customer.remark || '';
-    if (creditNote) {
+    if (isUseMealCredit) {
+      const creditNote = `Paid via Meal Credit (${creditDeducted} deducted)`;
       finalRemark = finalRemark ? `${finalRemark} (${creditNote})` : creditNote;
+    }
+    if (riderFeePaidByCredit) {
+      finalRemark = finalRemark ? `${finalRemark} • Rider Paid by Credit` : 'Rider Paid by Credit';
     }
 
     const orderRecord = {
       contactId: contactId,
       customerName: customer.name,
       customerPhone: customer.phone || '',
+      address: finalAddress,
+      riderId: finalRiderId,
+      riderName: finalRiderName,
+      foodAmount: foodAmount,
+      foodUnitPrice: unitPrice,
+      addonPerMeal: addonPerMeal,
+      riderFee: riderFee,
+      riderFeePaidByCredit: riderFeePaidByCredit,
       date: dateStr,
       day: dayName,
       menuId: dateStr,
@@ -1084,7 +1553,6 @@ async function saveOrderSubmit(event) {
       portion: portion,
       addons: addonsArr.length > 0 ? addonsArr : [],
       unitPrice: unitPrice,
-      addonPerMeal: addonPerMeal,
       quantity: quantity,
       totalAmount: totalAmount,
       paymentStatus: finalPaymentStatus,
@@ -1101,9 +1569,16 @@ async function saveOrderSubmit(event) {
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof renderKitchen === 'function') renderKitchen();
 
-  if (creditDeducted > 0) {
-    const remainingCount = portion === 'Standard' ? newStdCredit : newSmlCredit;
-    showMaterialToast(`Deducted ${creditDeducted} ${portion} Meal Credit(s). Remaining: ${remainingCount}`, 'success');
+  if (creditDeducted > 0 || riderCreditDeducted > 0) {
+    const msgs = [];
+    if (creditDeducted > 0) {
+      const remainingCount = portion === 'Standard' ? newStdCredit : newSmlCredit;
+      msgs.push(`Deducted ${creditDeducted} ${portion} Meal Credit(s) (Bal: ${remainingCount})`);
+    }
+    if (riderCreditDeducted > 0) {
+      msgs.push(`Deducted RM ${riderCreditDeducted.toFixed(2)} Rider Credit (Bal: RM ${newRiderCredit.toFixed(2)})`);
+    }
+    showMaterialToast(msgs.join(' • '), 'success');
   }
 
   // Clean circular checkmark animation

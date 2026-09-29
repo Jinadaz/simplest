@@ -13,6 +13,27 @@ function handleContactSearch(query) {
   renderContacts();
 }
 
+function toggleContactAddress2(show) {
+  const addr2Group = document.getElementById('contact-address2-group');
+  const btnShowAddr2 = document.getElementById('btn-show-add-address2');
+  const addr2Input = document.getElementById('contact-input-address2');
+  const rider2Select = document.getElementById('contact-input-rider2');
+
+  if (show) {
+    if (addr2Group) addr2Group.style.display = 'block';
+    if (btnShowAddr2) btnShowAddr2.style.display = 'none';
+    if (addr2Input) addr2Input.focus();
+  } else {
+    if (addr2Group) addr2Group.style.display = 'none';
+    const role = document.getElementById('contact-input-role')?.value || 'customer';
+    if (btnShowAddr2) {
+      btnShowAddr2.style.display = (role === 'rider') ? 'none' : 'inline-flex';
+    }
+    if (addr2Input) addr2Input.value = '';
+    if (rider2Select) rider2Select.value = '';
+  }
+}
+
 function setContactRole(role) {
   const roleInput = document.getElementById('contact-input-role');
   if (roleInput) roleInput.value = role;
@@ -20,36 +41,47 @@ function setContactRole(role) {
   const btnCustomer = document.getElementById('contact-role-btn-customer');
   const btnRider = document.getElementById('contact-role-btn-rider');
 
+  const riderGroup1 = document.getElementById('contact-rider-select-group');
+  const addr2Group = document.getElementById('contact-address2-group');
+  const btnShowAddr2 = document.getElementById('btn-show-add-address2');
+
   if (role === 'rider') {
     if (btnCustomer) btnCustomer.classList.remove('daytype-active');
     if (btnRider) btnRider.classList.add('daytype-active');
-    const riderGroup = document.getElementById('contact-rider-select-group');
-    if (riderGroup) riderGroup.style.display = 'none';
+    if (riderGroup1) riderGroup1.style.display = 'none';
+    if (addr2Group) addr2Group.style.display = 'none';
+    if (btnShowAddr2) btnShowAddr2.style.display = 'none';
   } else {
     if (btnRider) btnRider.classList.remove('daytype-active');
     if (btnCustomer) btnCustomer.classList.add('daytype-active');
-    const riderGroup = document.getElementById('contact-rider-select-group');
-    if (riderGroup) riderGroup.style.display = 'flex';
+    if (riderGroup1) riderGroup1.style.display = 'block';
+    // If address 2 is open, hide "+ Add Address 2"; otherwise show it
+    const isAddr2Open = addr2Group && addr2Group.style.display !== 'none';
+    if (btnShowAddr2) {
+      btnShowAddr2.style.display = isAddr2Open ? 'none' : 'inline-flex';
+    }
   }
 }
 
-function populateRidersDropdown(selectedRiderId = '') {
-  const selectEl = document.getElementById('contact-input-rider');
-  if (!selectEl) return;
-
-  selectEl.innerHTML = '<option value="">-- No Rider Assigned --</option>';
-
+function populateRidersDropdown(selectedRiderId = '', selectedRiderId2 = '') {
   const riders = Object.entries(cachedContacts || {})
     .map(([id, c]) => ({ id, ...c }))
     .filter(c => c.isRider === true || c.role === 'rider');
 
-  riders.forEach(r => {
-    const opt = document.createElement('option');
-    opt.value = r.id;
-    opt.textContent = `🛵 ${r.name} (${r.phone || 'No phone'})`;
-    if (r.id === selectedRiderId) opt.selected = true;
-    selectEl.appendChild(opt);
-  });
+  const populateSelect = (selectEl, chosenId) => {
+    if (!selectEl) return;
+    selectEl.innerHTML = '<option value="">-- No Rider Assigned --</option>';
+    riders.forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r.id;
+      opt.textContent = `🛵 ${r.name} (${r.phone || 'No phone'})`;
+      if (r.id === chosenId) opt.selected = true;
+      selectEl.appendChild(opt);
+    });
+  };
+
+  populateSelect(document.getElementById('contact-input-rider'), selectedRiderId);
+  populateSelect(document.getElementById('contact-input-rider2'), selectedRiderId2);
 }
 
 function renderContacts() {
@@ -62,8 +94,8 @@ function renderContacts() {
     if (!contactSearchQuery) return true;
     const nameMatch = (c.name || '').toLowerCase().includes(contactSearchQuery);
     const phoneMatch = (c.phone || '').toLowerCase().includes(contactSearchQuery);
-    const addressMatch = (c.address || '').toLowerCase().includes(contactSearchQuery);
-    const riderNameMatch = (c.riderName || '').toLowerCase().includes(contactSearchQuery);
+    const addressMatch = (c.address || '').toLowerCase().includes(contactSearchQuery) || (c.address2 || '').toLowerCase().includes(contactSearchQuery);
+    const riderNameMatch = (c.riderName || '').toLowerCase().includes(contactSearchQuery) || (c.riderName2 || '').toLowerCase().includes(contactSearchQuery);
     return nameMatch || phoneMatch || addressMatch || riderNameMatch;
   });
 
@@ -83,15 +115,27 @@ function renderContacts() {
   filtered.forEach(contact => {
     const isRider = contact.isRider === true || contact.role === 'rider';
     
-    // Resolve assigned rider display
+    // Resolve assigned rider display for Address 1
     let assignedRiderDisplay = '<span style="color:var(--text-light);">--</span>';
+    let assignedRiderDisplay2 = '';
+
     if (isRider) {
       assignedRiderDisplay = `<span class="badge badge-confirmed" style="background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; font-size:0.775rem;">🛵 Rider</span>`;
-    } else if (contact.riderId && cachedContacts[contact.riderId]) {
-      const riderObj = cachedContacts[contact.riderId];
-      assignedRiderDisplay = `<span class="badge badge-confirmed" style="background:#f0fdf4; border-color:#86efac; color:#166534; font-size:0.775rem; font-weight:800;">🛵 ${riderObj.name}</span>`;
-    } else if (contact.riderName) {
-      assignedRiderDisplay = `<span class="badge badge-confirmed" style="background:#f0fdf4; border-color:#86efac; color:#166534; font-size:0.775rem; font-weight:800;">🛵 ${contact.riderName}</span>`;
+    } else {
+      if (contact.riderId && cachedContacts[contact.riderId]) {
+        const riderObj = cachedContacts[contact.riderId];
+        assignedRiderDisplay = `<span class="badge badge-confirmed" style="background:#f0fdf4; border-color:#86efac; color:#166534; font-size:0.775rem; font-weight:800;" title="Rider for Address 1">🛵 ${riderObj.name}</span>`;
+      } else if (contact.riderName) {
+        assignedRiderDisplay = `<span class="badge badge-confirmed" style="background:#f0fdf4; border-color:#86efac; color:#166534; font-size:0.775rem; font-weight:800;" title="Rider for Address 1">🛵 ${contact.riderName}</span>`;
+      }
+
+      // Resolve assigned rider for Address 2
+      if (contact.riderId2 && cachedContacts[contact.riderId2]) {
+        const riderObj2 = cachedContacts[contact.riderId2];
+        assignedRiderDisplay2 = `<span class="badge badge-confirmed" style="background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; font-size:0.75rem; font-weight:800; margin-top:3px; display:inline-block;" title="Rider for Address 2">🛵2 ${riderObj2.name}</span>`;
+      } else if (contact.riderName2) {
+        assignedRiderDisplay2 = `<span class="badge badge-confirmed" style="background:#eff6ff; border-color:#93c5fd; color:#1d4ed8; font-size:0.75rem; font-weight:800; margin-top:3px; display:inline-block;" title="Rider for Address 2">🛵2 ${contact.riderName2}</span>`;
+      }
     }
 
     const nameBadge = isRider
@@ -100,12 +144,14 @@ function renderContacts() {
 
     const stdCred = contact.creditStandard || 0;
     const smlCred = contact.creditSmall || 0;
+    const riderCred = parseFloat(contact.creditRider) || 0;
     let creditDisplay = '<span style="color:var(--text-muted); font-size:0.775rem;">0</span>';
-    if (stdCred > 0 || smlCred > 0) {
+    if (stdCred > 0 || smlCred > 0 || riderCred > 0) {
       creditDisplay = `
         <div style="display:flex; gap:0.25rem; flex-wrap:wrap; align-items:center;">
           ${stdCred > 0 ? `<span class="badge" style="background:#ecfdf5; border-color:#a7f3d0; color:#047857; font-size:0.725rem; font-weight:800;">🍱 ${stdCred}</span>` : ''}
           ${smlCred > 0 ? `<span class="badge" style="background:#f0fdf4; border-color:#bbf7d0; color:#15803d; font-size:0.725rem; font-weight:800;">🥣 ${smlCred}</span>` : ''}
+          ${riderCred > 0 ? `<span class="badge" style="background:#eff6ff; border-color:#bfdbfe; color:#1d4ed8; font-size:0.725rem; font-weight:800;">🛵 RM${riderCred.toFixed(2)}</span>` : ''}
         </div>
       `;
     }
@@ -120,8 +166,14 @@ function renderContacts() {
           ${nameBadge}
         </td>
         <td style="white-space: nowrap;">📞 ${contact.phone || '--'}</td>
-        <td style="color: var(--text-main); line-height: 1.35;">📍 ${contact.address || '--'}</td>
-        <td style="white-space: nowrap;">${assignedRiderDisplay}</td>
+        <td style="color: var(--text-main); line-height: 1.35;">
+          <div>📍 ${contact.address || '--'}</div>
+          ${contact.address2 ? `<div style="font-size:0.76rem; color:var(--text-muted); margin-top:3px;">📍2: ${contact.address2}</div>` : ''}
+        </td>
+        <td style="white-space: nowrap;">
+          <div>${assignedRiderDisplay}</div>
+          ${assignedRiderDisplay2 ? `<div>${assignedRiderDisplay2}</div>` : ''}
+        </td>
         <td style="white-space: nowrap;">${creditDisplay}</td>
         <td>
           <div style="display: flex; gap: 0.35rem; align-items: center; justify-content: flex-end;">
@@ -153,16 +205,18 @@ function renderContacts() {
           <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">📞 ${contact.phone || 'No phone'}</span>
         </div>
         <div style="font-size: 0.85rem; color: var(--text-main); margin-bottom: 0.4rem; line-height: 1.4;">
-          📍 ${contact.address || 'No address'}
+          <div>📍 ${contact.address || 'No address'}</div>
+          ${contact.address2 ? `<div style="font-size:0.8rem; color:var(--text-muted); margin-top:2px;">📍2: ${contact.address2}</div>` : ''}
         </div>
-        ${(stdCred > 0 || smlCred > 0) ? `
+        ${(stdCred > 0 || smlCred > 0 || riderCred > 0) ? `
           <div style="font-size: 0.8rem; color: #047857; font-weight: 800; margin-bottom: 0.4rem; background: #ecfdf5; padding: 0.25rem 0.5rem; border-radius: 6px; display: inline-block;">
-            💳 Meal Credit: 🍱 Standard: ${stdCred} | 🥣 Small: ${smlCred}
+            💳 Credit: 🍱 Std: ${stdCred} | 🥣 Sml: ${smlCred}${riderCred > 0 ? ` | 🛵 Rider: RM${riderCred.toFixed(2)}` : ''}
           </div>
         ` : ''}
-        ${!isRider && (contact.riderName || contact.riderId) ? `
-          <div style="font-size: 0.8rem; color: #166534; font-weight: 800; margin-bottom: 0.5rem;">
-            ${assignedRiderDisplay}
+        ${!isRider && (contact.riderName || contact.riderId || contact.riderName2 || contact.riderId2) ? `
+          <div style="display:flex; gap:0.35rem; flex-wrap:wrap; margin-bottom: 0.5rem;">
+            ${assignedRiderDisplay !== '<span style="color:var(--text-light);">--</span>' ? assignedRiderDisplay : ''}
+            ${assignedRiderDisplay2}
           </div>
         ` : ''}
         <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
@@ -216,7 +270,8 @@ function openAddContactModal() {
   document.getElementById('contact-input-remark').value = '';
 
   setContactRole('customer');
-  populateRidersDropdown('');
+  populateRidersDropdown('', '');
+  toggleContactAddress2(false);
 
   document.getElementById('contact-modal').classList.add('active');
 }
@@ -234,7 +289,18 @@ function openEditContactModal(contactId) {
 
   const role = (c.isRider || c.role === 'rider') ? 'rider' : 'customer';
   setContactRole(role);
-  populateRidersDropdown(c.riderId || '');
+  populateRidersDropdown(c.riderId || '', c.riderId2 || '');
+
+  const hasAddr2 = !!(c.address2 && c.address2.trim());
+  if (role === 'customer' && hasAddr2) {
+    toggleContactAddress2(true);
+    const addr2Input = document.getElementById('contact-input-address2');
+    if (addr2Input) addr2Input.value = c.address2;
+    const rider2Select = document.getElementById('contact-input-rider2');
+    if (rider2Select) rider2Select.value = c.riderId2 || '';
+  } else {
+    toggleContactAddress2(false);
+  }
 
   document.getElementById('contact-modal').classList.add('active');
 }
@@ -249,6 +315,8 @@ async function saveContactSubmit(event) {
   const name = document.getElementById('contact-input-name').value.trim();
   const phone = document.getElementById('contact-input-phone').value.trim();
   const address = document.getElementById('contact-input-address').value.trim();
+  const addr2Input = document.getElementById('contact-input-address2');
+  const address2 = addr2Input ? addr2Input.value.trim() : '';
   const remark = document.getElementById('contact-input-remark').value.trim();
   const role = document.getElementById('contact-input-role').value;
 
@@ -260,11 +328,23 @@ async function saveContactSubmit(event) {
   const isRider = (role === 'rider');
   let riderId = '';
   let riderName = '';
+  let riderId2 = '';
+  let riderName2 = '';
 
   if (!isRider) {
-    riderId = document.getElementById('contact-input-rider').value;
-    if (riderId && cachedContacts[riderId]) {
-      riderName = cachedContacts[riderId].name;
+    const riderSelect = document.getElementById('contact-input-rider');
+    if (riderSelect) {
+      riderId = riderSelect.value;
+      if (riderId && cachedContacts[riderId]) {
+        riderName = cachedContacts[riderId].name;
+      }
+    }
+    const riderSelect2 = document.getElementById('contact-input-rider2');
+    if (riderSelect2) {
+      riderId2 = riderSelect2.value;
+      if (riderId2 && cachedContacts[riderId2]) {
+        riderName2 = cachedContacts[riderId2].name;
+      }
     }
   }
 
@@ -274,13 +354,17 @@ async function saveContactSubmit(event) {
     name,
     phone,
     address,
+    address2,
     remark,
     isRider,
     role,
     riderId,
     riderName,
+    riderId2,
+    riderName2,
     creditStandard: existingObj.creditStandard || 0,
-    creditSmall: existingObj.creditSmall || 0
+    creditSmall: existingObj.creditSmall || 0,
+    creditRider: existingObj.creditRider || 0
   };
 
   if (editingContactId) {
@@ -357,6 +441,8 @@ function openPackagePurchaseModal(preselectedContactId = null) {
 
   document.getElementById('pkg-input-credit-standard').value = 0;
   document.getElementById('pkg-input-credit-small').value = 0;
+  const rdrInp = document.getElementById('pkg-input-credit-rider');
+  if (rdrInp) rdrInp.value = 0;
   document.getElementById('pkg-input-price').value = '';
   document.getElementById('pkg-input-remark').value = '';
 
@@ -377,6 +463,7 @@ async function savePackagePurchaseSubmit(event) {
   const searchInputVal = document.getElementById('pkg-input-customer-search').value.trim();
   const addStd = Math.max(0, parseInt(document.getElementById('pkg-input-credit-standard').value) || 0);
   const addSml = Math.max(0, parseInt(document.getElementById('pkg-input-credit-small').value) || 0);
+  const addRider = Math.max(0, parseFloat(document.getElementById('pkg-input-credit-rider').value) || 0);
   const price = Math.max(0, parseFloat(document.getElementById('pkg-input-price').value) || 0);
   const remark = document.getElementById('pkg-input-remark').value.trim();
 
@@ -398,8 +485,8 @@ async function savePackagePurchaseSubmit(event) {
     return;
   }
 
-  if (addStd <= 0 && addSml <= 0) {
-    showMaterialToast('Please enter at least 1 Standard or Small credit to add', 'warning');
+  if (addStd <= 0 && addSml <= 0 && addRider <= 0) {
+    showMaterialToast('Please enter at least 1 credit (Standard, Small, or Rider) to add', 'warning');
     document.getElementById('pkg-input-credit-standard').focus();
     return;
   }
@@ -413,11 +500,13 @@ async function savePackagePurchaseSubmit(event) {
   const customer = cachedContacts[contactId];
   const newStd = (customer.creditStandard || 0) + addStd;
   const newSml = (customer.creditSmall || 0) + addSml;
+  const newRider = (parseFloat(customer.creditRider) || 0) + addRider;
 
   // Update customer credits balance in DB
   await dbUpdateContact(contactId, {
     creditStandard: newStd,
-    creditSmall: newSml
+    creditSmall: newSml,
+    creditRider: newRider
   });
 
   // Log credit transaction history
@@ -428,8 +517,10 @@ async function savePackagePurchaseSubmit(event) {
     action: 'Package Top-up',
     deltaStandard: addStd,
     deltaSmall: addSml,
+    deltaRider: addRider,
     newStandard: newStd,
     newSmall: newSml,
+    newRider: newRider,
     amount: price,
     remark: remark ? `Package Purchase: ${remark}` : `Package Purchase (RM ${price.toFixed(2)})`
   });
@@ -446,7 +537,8 @@ async function savePackagePurchaseSubmit(event) {
   let creditDesc = [];
   if (addStd > 0) creditDesc.push(`+${addStd} Std`);
   if (addSml > 0) creditDesc.push(`+${addSml} Sml`);
-  const portionLabel = addStd > 0 ? 'Standard' : 'Small';
+  if (addRider > 0) creditDesc.push(`+RM${addRider.toFixed(2)} Rider`);
+  const portionLabel = addStd > 0 ? 'Standard' : (addSml > 0 ? 'Small' : 'Standard');
 
   const salesRecord = {
     contactId: contactId,
@@ -489,6 +581,8 @@ function openEditMealCreditModal(contactId = null) {
   document.getElementById('edit-credit-customer-name').textContent = customer.name;
   document.getElementById('edit-credit-input-standard').value = customer.creditStandard || 0;
   document.getElementById('edit-credit-input-small').value = customer.creditSmall || 0;
+  const riderCreditInp = document.getElementById('edit-credit-input-rider');
+  if (riderCreditInp) riderCreditInp.value = (parseFloat(customer.creditRider) || 0).toFixed(2);
   document.getElementById('edit-credit-input-remark').value = '';
 
   document.getElementById('edit-meal-credit-modal').classList.add('active');
@@ -506,9 +600,11 @@ async function saveEditMealCreditSubmit(event) {
 
   const oldStd = customer.creditStandard || 0;
   const oldSml = customer.creditSmall || 0;
+  const oldRider = parseFloat(customer.creditRider) || 0;
 
   const newStd = parseInt(document.getElementById('edit-credit-input-standard').value) || 0;
   const newSml = parseInt(document.getElementById('edit-credit-input-small').value) || 0;
+  const newRider = Math.max(0, parseFloat(document.getElementById('edit-credit-input-rider').value) || 0);
   const remark = document.getElementById('edit-credit-input-remark').value.trim();
 
   if (!remark) {
@@ -518,11 +614,13 @@ async function saveEditMealCreditSubmit(event) {
 
   const deltaStd = newStd - oldStd;
   const deltaSml = newSml - oldSml;
+  const deltaRider = newRider - oldRider;
 
   // Update contact credit balance in DB
   await dbUpdateContact(contactId, {
     creditStandard: newStd,
-    creditSmall: newSml
+    creditSmall: newSml,
+    creditRider: newRider
   });
 
   // Log to credit logs history
@@ -533,14 +631,16 @@ async function saveEditMealCreditSubmit(event) {
     action: 'Manual Adjust',
     deltaStandard: deltaStd,
     deltaSmall: deltaSml,
+    deltaRider: deltaRider,
     newStandard: newStd,
     newSmall: newSml,
+    newRider: newRider,
     remark: remark
   });
 
   closeEditMealCreditModal();
   renderContacts();
-  showMaterialToast(`Meal credits updated for ${customer.name}`, 'success');
+  showMaterialToast(`Credits updated for ${customer.name}`, 'success');
 }
 
 function switchProfileTab(tab) {
@@ -599,6 +699,8 @@ function openCustomerProfileModal(contactId) {
   if (stdEl) stdEl.textContent = c.creditStandard || 0;
   const smlEl = document.getElementById('profile-credit-small');
   if (smlEl) smlEl.textContent = c.creditSmall || 0;
+  const riderCreditEl = document.getElementById('profile-credit-rider');
+  if (riderCreditEl) riderCreditEl.textContent = (parseFloat(c.creditRider) || 0).toFixed(2);
 
   const riderTag = document.getElementById('profile-rider-tag');
   if (riderTag) {
@@ -607,12 +709,34 @@ function openCustomerProfileModal(contactId) {
       riderTag.textContent = '🛵 Delivery Rider';
     } else if (c.riderId && cachedContacts[c.riderId]) {
       riderTag.style.display = 'block';
-      riderTag.textContent = `🛵 Assigned Rider: ${cachedContacts[c.riderId].name}`;
+      riderTag.textContent = `🛵 Assigned Rider (Addr 1): ${cachedContacts[c.riderId].name}`;
     } else if (c.riderName) {
       riderTag.style.display = 'block';
-      riderTag.textContent = `🛵 Assigned Rider: ${c.riderName}`;
+      riderTag.textContent = `🛵 Assigned Rider (Addr 1): ${c.riderName}`;
     } else {
       riderTag.style.display = 'none';
+    }
+  }
+
+  const addr2Row = document.getElementById('profile-address2-row');
+  const addr2Span = document.getElementById('profile-address2');
+  if (addr2Row && addr2Span) {
+    if (c.address2 && c.address2.trim()) {
+      addr2Row.style.display = 'block';
+      addr2Span.textContent = c.address2.trim();
+    } else {
+      addr2Row.style.display = 'none';
+    }
+  }
+
+  const rider2Tag = document.getElementById('profile-rider2-tag');
+  if (rider2Tag) {
+    if (!isRider && (c.riderId2 || c.riderName2)) {
+      const r2Name = (c.riderId2 && cachedContacts[c.riderId2]) ? cachedContacts[c.riderId2].name : (c.riderName2 || 'Rider 2');
+      rider2Tag.style.display = 'block';
+      rider2Tag.textContent = `🛵 Assigned Rider (Addr 2): ${r2Name}`;
+    } else {
+      rider2Tag.style.display = 'none';
     }
   }
 
@@ -675,13 +799,18 @@ function openCustomerProfileModal(contactId) {
 
         let stdText = '';
         if (log.deltaStandard !== 0 && log.deltaStandard !== undefined) {
-          stdText = `Standard ${log.deltaStandard > 0 ? '+' : ''}${log.deltaStandard}`;
+          stdText = `Std ${log.deltaStandard > 0 ? '+' : ''}${log.deltaStandard}`;
         }
         let smlText = '';
         if (log.deltaSmall !== 0 && log.deltaSmall !== undefined) {
-          smlText = `Small ${log.deltaSmall > 0 ? '+' : ''}${log.deltaSmall}`;
+          smlText = `Sml ${log.deltaSmall > 0 ? '+' : ''}${log.deltaSmall}`;
         }
-        const deltaText = [stdText, smlText].filter(Boolean).join(', ') || 'No change';
+        let rdrText = '';
+        if (log.deltaRider !== 0 && log.deltaRider !== undefined) {
+          rdrText = `Rider RM ${log.deltaRider > 0 ? '+' : ''}${parseFloat(log.deltaRider).toFixed(2)}`;
+        }
+        const deltaText = [stdText, smlText, rdrText].filter(Boolean).join(', ') || 'No change';
+        const balRiderStr = log.newRider !== undefined ? `, RM ${parseFloat(log.newRider).toFixed(2)} Rider` : '';
 
         const itemHtml = `
           <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.65rem 0.85rem; margin-bottom: 0.4rem;">
@@ -693,7 +822,7 @@ function openCustomerProfileModal(contactId) {
             </div>
             <div style="font-size: 0.825rem; font-weight: 700; color: var(--text-main); margin-top: 0.35rem;">
               Change: <span style="color: var(--primary-dark);">${deltaText}</span>
-              <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.5rem;">(Bal: ${log.newStandard || 0} Std, ${log.newSmall || 0} Sml)</span>
+              <span style="font-size: 0.75rem; color: var(--text-muted); margin-left: 0.5rem;">(Bal: ${log.newStandard || 0} Std, ${log.newSmall || 0} Sml${balRiderStr})</span>
             </div>
             ${log.remark ? `<div style="font-size: 0.775rem; color: #475569; margin-top: 0.2rem; font-style: italic;">Remark: ${log.remark}</div>` : ''}
           </div>

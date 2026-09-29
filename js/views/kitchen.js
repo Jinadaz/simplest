@@ -91,7 +91,7 @@ function renderKitchen() {
 
   dayOrders.forEach(ord => {
     const cust = contactsMap[ord.contactId] || {};
-    const riderId = cust.riderId || 'unassigned';
+    const riderId = ord.riderId || cust.riderId || 'unassigned';
     
     if (!riderGroups[riderId]) {
       riderGroups[riderId] = [];
@@ -99,8 +99,8 @@ function renderKitchen() {
 
     riderGroups[riderId].push({
       ...ord,
-      address: cust.address || ord.address || '',
-      customerPhone: cust.phone || ord.customerPhone || ''
+      address: ord.address || cust.address || '',
+      customerPhone: ord.customerPhone || cust.phone || ''
     });
   });
 
