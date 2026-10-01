@@ -42,8 +42,19 @@ function handleOrderSearchFilter(query) {
   renderOrders();
 }
 
+function formatOrderItemsDetails(items) {
+  if (!items || !Array.isArray(items) || items.length === 0) return '';
+  return items.map(it => {
+    const addonsList = Array.isArray(it.addons) ? it.addons : Array.from(it.addons || []);
+    const addonText = addonsList.length > 0 
+      ? ` (+${addonsList.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})`
+      : '';
+    return `#${it.id || ''} ${it.portion || 'Standard'}${addonText}`.trim();
+  }).join(' • ');
+}
+
 function getOrderPriceBreakdown(ord) {
-  const isCreditFood = (ord.foodAmount === 0 && (ord.unitPrice === 0 || ord.paymentStatus === 'Package'));
+  const isCreditFood = (ord.foodAmount === 0 && (ord.foodUnitPrice === 0 || ord.paymentStatus === 'Package'));
   const rawFoodAmt = (ord.foodAmount !== undefined && ord.foodAmount !== null)
     ? parseFloat(ord.foodAmount)
     : (ord.unitPrice !== undefined ? (parseFloat(ord.unitPrice) + (parseFloat(ord.addonPerMeal) || 0)) * (parseInt(ord.quantity) || 1) : (parseFloat(ord.totalAmount) - (parseFloat(ord.riderFee) || 0)));
@@ -60,6 +71,9 @@ function getOrderPriceBreakdown(ord) {
     mealDisplay = 'RM 0.00';
     mealSub = '💳 Package';
     mealBadge = 'RM 0.00 (Pkg)';
+  } else if (ord.items && Array.isArray(ord.items) && ord.items.some(it => it.addonPrice > 0)) {
+    const totalAddons = ord.items.reduce((sum, it) => sum + (it.addonPrice || 0), 0);
+    mealSub = `+RM${totalAddons.toFixed(2)} Add-on`;
   } else if (ord.addons && ord.addons.length > 0 && ord.addonPerMeal > 0) {
     mealSub = `+RM${(parseFloat(ord.addonPerMeal) * (parseInt(ord.quantity) || 1)).toFixed(2)} Add-on`;
   }
@@ -232,7 +246,8 @@ function renderOrders() {
         ord.foodName,
         ord.quantity,
         ord.totalAmount,
-        portion
+        portion,
+        ord.items
       );
 
       // Desktop Table Row for Month View
@@ -254,11 +269,20 @@ function renderOrders() {
           <td>
             <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
               <span style="font-weight: 700;">${ord.foodName}</span>
-              <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">
-                ${portion === 'Small' ? 'Small' : 'Standard'}
-              </span>
-              <span style="color: var(--text-muted); font-weight: 700;">× ${ord.quantity}</span>
+              <span style="color: var(--primary-dark); font-weight: 800;">× ${ord.quantity}</span>
             </div>
+            ${ord.items && Array.isArray(ord.items) && ord.items.length > 0 ? `
+              <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; line-height: 1.25; margin-top: 2px;">
+                ${formatOrderItemsDetails(ord.items)}
+              </div>
+            ` : `
+              <div style="margin-top: 2px;">
+                <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">
+                  ${ord.portion || 'Standard'}
+                </span>
+                ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700; margin-left: 3px;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
+              </div>
+            `}
           </td>
           <td>
             <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${breakdown.mealDisplay}</div>
@@ -287,6 +311,9 @@ function renderOrders() {
           </td>
           <td>
             <div style="display: flex; gap: 0.35rem; align-items: center;">
+              <button class="btn btn-outline btn-sm" style="color: var(--primary-dark); padding: 0.25rem 0.45rem;" onclick="openEditOrderModal('${ord.orderId}')" title="Edit Order">
+                ${getSvgIcon('edit', 'sm')}
+              </button>
               <a href="${waLink}" target="_blank" class="btn btn-whatsapp btn-sm" title="WhatsApp Message">
                 ${getSvgIcon('whatsapp', 'sm')}
               </a>
@@ -317,9 +344,15 @@ function renderOrders() {
             </div>
           </div>
           <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-            🥗 ${ord.foodName}
-            <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">${portion === 'Small' ? 'Small' : 'Standard'}</span>
-            × ${ord.quantity}
+            🥗 ${ord.foodName} × ${ord.quantity}
+            ${ord.items && Array.isArray(ord.items) && ord.items.length > 0 ? `
+              <div style="font-size: 0.725rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
+                ${formatOrderItemsDetails(ord.items)}
+              </div>
+            ` : `
+              <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">${ord.portion || 'Standard'}</span>
+              ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
+            `}
             ${riderName ? ` • 🛵 ${riderName}${ord.riderFee && parseFloat(ord.riderFee) > 0 ? ` (Fee: RM${parseFloat(ord.riderFee).toFixed(2)})` : ''}` : ''}
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
@@ -330,6 +363,9 @@ function renderOrders() {
               </span>
             </div>
             <div style="display: flex; gap: 0.35rem;">
+              <button class="btn btn-outline btn-sm" style="color: var(--primary-dark); padding: 0.25rem 0.45rem;" onclick="openEditOrderModal('${ord.orderId}')" title="Edit Order">
+                ${getSvgIcon('edit', 'sm')}
+              </button>
               <a href="${waLink}" target="_blank" class="btn btn-whatsapp btn-sm">
                 ${getSvgIcon('whatsapp', 'sm')}
               </a>
@@ -459,7 +495,8 @@ function renderOrders() {
       ord.foodName,
       ord.quantity,
       ord.totalAmount,
-      portion
+      portion,
+      ord.items
     );
 
     tableRowsHtml += `
@@ -472,11 +509,20 @@ function renderOrders() {
         <td>
           <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
             <span style="font-weight: 700;">${ord.foodName}</span>
-            <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">
-              ${portion === 'Small' ? 'Small' : 'Standard'}
-            </span>
-            <span style="color: var(--text-muted);">× ${ord.quantity}</span>
+            <span style="color: var(--primary-dark); font-weight: 800;">× ${ord.quantity}</span>
           </div>
+          ${ord.items && Array.isArray(ord.items) && ord.items.length > 0 ? `
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; line-height: 1.25; margin-top: 2px;">
+              ${formatOrderItemsDetails(ord.items)}
+            </div>
+          ` : `
+            <div style="margin-top: 2px;">
+              <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">
+                ${ord.portion || 'Standard'}
+              </span>
+              ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700; margin-left: 3px;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
+            </div>
+          `}
         </td>
         <td>
           <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${breakdown.mealDisplay}</div>
@@ -494,6 +540,9 @@ function renderOrders() {
         </td>
         <td>
           <div style="display: flex; gap: 0.35rem; align-items: center;">
+            <button class="btn btn-outline btn-sm" style="color: var(--primary-dark); padding: 0.25rem 0.45rem;" onclick="openEditOrderModal('${ord.orderId}')" title="Edit Order">
+              ${getSvgIcon('edit', 'sm')}
+            </button>
             <a href="${waLink}" target="_blank" class="btn btn-whatsapp btn-sm" title="WhatsApp Message">
               ${getSvgIcon('whatsapp', 'sm')}
             </a>
@@ -523,9 +572,15 @@ function renderOrders() {
           </div>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-          🥗 ${ord.foodName}
-          <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}">${portion === 'Small' ? 'Small' : 'Standard'}</span>
-          × ${ord.quantity}
+          🥗 ${ord.foodName} × ${ord.quantity}
+          ${ord.items && Array.isArray(ord.items) && ord.items.length > 0 ? `
+            <div style="font-size: 0.725rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
+              ${formatOrderItemsDetails(ord.items)}
+            </div>
+          ` : `
+            <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">${ord.portion || 'Standard'}</span>
+            ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
+          `}
           ${riderName ? ` • 🛵 ${riderName}${ord.riderFee && parseFloat(ord.riderFee) > 0 ? ` (Fee: RM${parseFloat(ord.riderFee).toFixed(2)})` : ''}` : ''}
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
@@ -533,6 +588,9 @@ function renderOrders() {
             ${renderPaymentBadgeHtml(ord.paymentStatus, ord.orderId)}
           </div>
           <div style="display: flex; gap: 0.35rem;">
+            <button class="btn btn-outline btn-sm" style="color: var(--primary-dark); padding: 0.25rem 0.45rem;" onclick="openEditOrderModal('${ord.orderId}')" title="Edit Order">
+              ${getSvgIcon('edit', 'sm')}
+            </button>
             <a href="${waLink}" target="_blank" class="btn btn-whatsapp btn-sm">
               ${getSvgIcon('whatsapp', 'sm')}
             </a>
@@ -843,10 +901,9 @@ function selectOrderCustomer(customer) {
   const mealCreditAvail = document.getElementById('order-meal-credit-available');
   const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
   if (mealCreditBox && mealCreditAvail && mealCreditCheckbox) {
-    if (hasCreditForPortion) {
+    if (stdC > 0 || smlC > 0) {
       mealCreditBox.style.display = 'block';
-      const balStr = currentPortion === 'Small' ? `${smlC} Small` : `${stdC} Std`;
-      mealCreditAvail.textContent = `Bal: ${balStr}`;
+      mealCreditAvail.textContent = `Bal: ${stdC} Std, ${smlC} Sml`;
       mealCreditCheckbox.checked = true;
     } else {
       mealCreditBox.style.display = 'none';
@@ -876,6 +933,7 @@ function selectOrderCustomer(customer) {
     document.getElementById('order-input-remark').value = customer.remark;
   }
 
+  renderOrderMealItems();
   updateOrderFormCalculations();
 }
 
@@ -889,68 +947,174 @@ document.addEventListener('click', (e) => {
 });
 
 let selectedOrderDates = new Set();
-let selectedOrderPortion = 'Standard';
-let selectedOrderAddons = new Set(); // 'protein', 'vege', 'rice'
+let orderMealItems = [
+  { id: 1, portion: 'Standard', addons: new Set() }
+];
+
+// Helper property getters for backward compatibility
+const selectedOrderPortion = 'Standard';
+const selectedOrderAddons = new Set();
+
+function renderOrderMealItems() {
+  const container = document.getElementById('order-meal-items-container');
+  if (!container) return;
+
+  const pricing = dbGetPricing();
+  const contactId = document.getElementById('order-input-customer')?.value;
+  const customer = contactId ? cachedContacts[contactId] : null;
+  const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
+  const isUseMealCredit = !!(customer && mealCreditCheckbox && mealCreditCheckbox.checked);
+
+  // Available customer credits
+  let stdAvail = parseInt(customer?.creditStandard) || 0;
+  let smlAvail = parseInt(customer?.creditSmall) || 0;
+
+  const countBadge = document.getElementById('order-lbl-meals-count');
+  if (countBadge) {
+    countBadge.textContent = `${orderMealItems.length} Meal${orderMealItems.length > 1 ? 's' : ''}`;
+  }
+
+  const qtyInput = document.getElementById('order-input-quantity');
+  if (qtyInput) qtyInput.value = orderMealItems.length;
+
+  let html = '';
+  orderMealItems.forEach((item, idx) => {
+    let basePrice = item.portion === 'Small' ? pricing.small : pricing.standard;
+    let isCoveredByCredit = false;
+
+    if (isUseMealCredit) {
+      if (item.portion === 'Small' && smlAvail > 0) {
+        isCoveredByCredit = true;
+        smlAvail--;
+        basePrice = 0;
+      } else if (item.portion === 'Standard' && stdAvail > 0) {
+        isCoveredByCredit = true;
+        stdAvail--;
+        basePrice = 0;
+      }
+    }
+
+    let addonTotal = 0;
+    if (item.addons.has('protein')) addonTotal += (pricing.addonProtein || 2.00);
+    if (item.addons.has('vege')) addonTotal += (pricing.addonVege || 1.50);
+    if (item.addons.has('rice')) addonTotal += (pricing.addonRice || 1.00);
+
+    const mealSubtotal = basePrice + addonTotal;
+    let priceLabel = formatRM(mealSubtotal);
+    if (isCoveredByCredit) {
+      priceLabel = addonTotal > 0 ? `Package (+${formatRM(addonTotal)})` : 'Package (Credit)';
+    }
+
+    html += `
+      <div class="order-meal-card" data-index="${idx}">
+        <div class="order-meal-card-header">
+          <div style="display: flex; align-items: center; gap: 0.4rem;">
+            <span class="order-meal-num-badge">#${idx + 1}</span>
+            <span style="font-weight: 800; font-size: 0.85rem; color: var(--text-main);">Meal ${idx + 1}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.45rem;">
+            <span class="order-meal-price-badge">${priceLabel}</span>
+            ${orderMealItems.length > 1 ? `
+              <button type="button" class="order-meal-remove-btn" onclick="removeOrderMealItem(${idx})" title="Remove Meal">✕</button>
+            ` : ''}
+          </div>
+        </div>
+
+        <div class="order-meal-portion-row">
+          <div class="order-meal-pill ${item.portion === 'Standard' ? 'active' : ''}" onclick="selectItemPortion(${idx}, 'Standard')">
+            <span>🍱 Standard</span>
+            <span class="order-meal-pill-price">${formatRM(pricing.standard)}</span>
+          </div>
+          <div class="order-meal-pill ${item.portion === 'Small' ? 'active' : ''}" onclick="selectItemPortion(${idx}, 'Small')">
+            <span>🥣 Small</span>
+            <span class="order-meal-pill-price">${formatRM(pricing.small)}</span>
+          </div>
+        </div>
+
+        <div class="order-meal-addons-row">
+          <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; flex-shrink: 0;">Add-on:</span>
+          <div class="order-meal-addon-chips">
+            <button type="button" class="addon-chip-btn ${item.addons.has('protein') ? 'active' : ''}" onclick="toggleItemAddon(${idx}, 'protein')">
+              <span>🥩 Protein</span>
+              <span class="addon-chip-price">+RM${(pricing.addonProtein || 2.00).toFixed(2)}</span>
+            </button>
+            <button type="button" class="addon-chip-btn ${item.addons.has('vege') ? 'active' : ''}" onclick="toggleItemAddon(${idx}, 'vege')">
+              <span>🥦 Vege</span>
+              <span class="addon-chip-price">+RM${(pricing.addonVege || 1.50).toFixed(2)}</span>
+            </button>
+            <button type="button" class="addon-chip-btn ${item.addons.has('rice') ? 'active' : ''}" onclick="toggleItemAddon(${idx}, 'rice')">
+              <span>🍚 Rice</span>
+              <span class="addon-chip-price">+RM${(pricing.addonRice || 1.00).toFixed(2)}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+function selectItemPortion(index, portion) {
+  if (orderMealItems[index]) {
+    orderMealItems[index].portion = portion;
+    renderOrderMealItems();
+    updateOrderFormCalculations();
+  }
+}
+
+function toggleItemAddon(index, addonType) {
+  if (orderMealItems[index]) {
+    if (orderMealItems[index].addons.has(addonType)) {
+      orderMealItems[index].addons.delete(addonType);
+    } else {
+      orderMealItems[index].addons.add(addonType);
+    }
+    renderOrderMealItems();
+    updateOrderFormCalculations();
+  }
+}
+
+function removeOrderMealItem(index) {
+  if (orderMealItems.length > 1) {
+    orderMealItems.splice(index, 1);
+    orderMealItems.forEach((item, i) => item.id = i + 1);
+    renderOrderMealItems();
+    updateOrderFormCalculations();
+  }
+}
+
+function changeOrderQuantity(delta) {
+  const current = orderMealItems.length;
+  const next = Math.max(1, current + delta);
+  if (next > current) {
+    while (orderMealItems.length < next) {
+      const prevPortion = orderMealItems[orderMealItems.length - 1]?.portion || 'Standard';
+      orderMealItems.push({
+        id: orderMealItems.length + 1,
+        portion: prevPortion,
+        addons: new Set()
+      });
+    }
+  } else if (next < current) {
+    while (orderMealItems.length > next) {
+      orderMealItems.pop();
+    }
+  }
+  renderOrderMealItems();
+  updateOrderFormCalculations();
+}
 
 function toggleAddon(type) {
-  const btn = document.getElementById(`addon-btn-${type}`);
-  if (selectedOrderAddons.has(type)) {
-    selectedOrderAddons.delete(type);
-    if (btn) btn.classList.remove('active');
-  } else {
-    selectedOrderAddons.add(type);
-    if (btn) btn.classList.add('active');
-  }
-  // Update hidden input
-  const hiddenInput = document.getElementById('order-input-addons');
-  if (hiddenInput) hiddenInput.value = Array.from(selectedOrderAddons).join(',');
-  updateOrderFormCalculations();
+  toggleItemAddon(0, type);
 }
 
 function refreshAddonPriceTags() {
-  const pricing = dbGetPricing();
-  const proteinTag = document.getElementById('addon-price-protein');
-  const vegeTag = document.getElementById('addon-price-vege');
-  const riceTag = document.getElementById('addon-price-rice');
-  if (proteinTag) proteinTag.textContent = `+RM${(pricing.addonProtein || 2.00).toFixed(2)}`;
-  if (vegeTag) vegeTag.textContent = `+RM${(pricing.addonVege || 1.50).toFixed(2)}`;
-  if (riceTag) riceTag.textContent = `+RM${(pricing.addonRice || 1.00).toFixed(2)}`;
+  renderOrderMealItems();
 }
 
 function selectOrderPortion(portion) {
-  selectedOrderPortion = portion;
-  const btnStd = document.getElementById('portion-btn-standard');
-  const btnSml = document.getElementById('portion-btn-small');
-  const input = document.getElementById('order-input-portion');
-
-  if (btnStd) btnStd.classList.toggle('active', portion === 'Standard');
-  if (btnSml) btnSml.classList.toggle('active', portion === 'Small');
-  if (input) input.value = portion;
-
-  // Re-evaluate customer credit eligibility for newly selected portion
-  const contactId = document.getElementById('order-input-customer').value;
-  const customer = contactId ? cachedContacts[contactId] : null;
-
-  if (customer) {
-    const hasCreditForPortion = checkCustomerHasCreditForPortion(customer, portion);
-    const mealCreditBox = document.getElementById('order-meal-credit-box');
-    const mealCreditAvail = document.getElementById('order-meal-credit-available');
-    const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
-    if (mealCreditBox && mealCreditAvail && mealCreditCheckbox) {
-      if (hasCreditForPortion) {
-        mealCreditBox.style.display = 'block';
-        const balStr = portion === 'Small' ? `${customer.creditSmall || 0} Small` : `${customer.creditStandard || 0} Std`;
-        mealCreditAvail.textContent = `Bal: ${balStr}`;
-        mealCreditCheckbox.checked = true;
-      } else {
-        mealCreditBox.style.display = 'none';
-        mealCreditCheckbox.checked = false;
-      }
-    }
-  }
-
-  renderOrderDateCards();
-  updateOrderFormCalculations();
+  selectItemPortion(0, portion);
 }
 
 function selectOrderPaymentStatus(status, triggerCalc = true) {
@@ -981,13 +1145,29 @@ function selectOrderPaymentStatus(status, triggerCalc = true) {
   }
 }
 
-// Render 5 Mon-Fri Meal Date Cards inside Add Order modal (Multi-Select Supported)
-function renderOrderDateCards(defaultDateStr = null) {
+function getWeekOffsetForDate(dateStr) {
+  if (!dateStr) return 0;
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return 0;
+  const target = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  const now = new Date();
+  const currentDayOfWeek = now.getDay();
+  const distanceToMon = currentDayOfWeek === 0 ? -6 : 1 - currentDayOfWeek;
+  const currentMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() + distanceToMon);
+  currentMonday.setHours(0, 0, 0, 0);
+
+  const diffTime = target.getTime() - currentMonday.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  return Math.floor(diffDays / 7);
+}
+
+// Render 5 Mon-Fri Meal Date Cards inside Add / Edit Order modal (Multi-Select Supported)
+function renderOrderDateCards(defaultDateStr = null, weekOffset = 0) {
   const grid = document.getElementById('order-date-cards-grid');
   if (!grid) return;
 
   grid.innerHTML = '';
-  const weekDays = getWeekDays(0);
+  const weekDays = getWeekDays(weekOffset);
 
   const now = new Date();
   const yyyy = now.getFullYear();
@@ -995,13 +1175,17 @@ function renderOrderDateCards(defaultDateStr = null) {
   const dd = String(now.getDate()).padStart(2, '0');
   const todayStr = `${yyyy}-${mm}-${dd}`;
 
-  if (defaultDateStr && defaultDateStr >= todayStr) {
+  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
+
+  if (defaultDateStr) {
     selectedOrderDates.clear();
     selectedOrderDates.add(defaultDateStr);
   }
 
   weekDays.forEach((d) => {
-    const isPast = d.dateStr < todayStr;
+    // When editing an order, do not disable its currently assigned date even if in the past
+    const isEditingThisDate = !!(editingOrderId && d.dateStr === defaultDateStr);
+    const isPast = d.dateStr < todayStr && !isEditingThisDate;
     const menuObj = dbGetMenuByDate(d.dateStr);
     const hasMenu = !!(menuObj && menuObj.foodName);
     const foodName = hasMenu ? menuObj.foodName : 'No Menu';
@@ -1052,12 +1236,21 @@ function toggleOrderDateCard(dateStr, dayName, menuObj) {
   const dd = String(now.getDate()).padStart(2, '0');
   const todayStr = `${yyyy}-${mm}-${dd}`;
 
-  if (dateStr < todayStr) return; // Prevent selecting past dates
+  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
+  const isEditing = !!editingOrderId;
 
-  if (selectedOrderDates.has(dateStr)) {
-    selectedOrderDates.delete(dateStr);
-  } else {
+  if (dateStr < todayStr && !isEditing) return; // Prevent selecting past dates unless in edit mode
+
+  if (isEditing) {
+    // When editing a specific order, picking a date switches to that date
+    selectedOrderDates.clear();
     selectedOrderDates.add(dateStr);
+  } else {
+    if (selectedOrderDates.has(dateStr)) {
+      selectedOrderDates.delete(dateStr);
+    } else {
+      selectedOrderDates.add(dateStr);
+    }
   }
 
   document.querySelectorAll('.date-select-card').forEach(card => {
@@ -1068,29 +1261,29 @@ function toggleOrderDateCard(dateStr, dayName, menuObj) {
   updateOrderFormCalculations();
 }
 
-// Quantity Stepper Handler (+ / - buttons)
-function changeOrderQuantity(delta) {
-  const input = document.getElementById('order-input-quantity');
-  if (!input) return;
-
-  let currentVal = parseInt(input.value) || 1;
-  currentVal += delta;
-  if (currentVal < 1) currentVal = 1;
-
-  input.value = currentVal;
-  updateOrderFormCalculations();
-}
-
 function openAddOrderModal(preselectedContactId = null) {
-  document.getElementById('order-input-customer').value = '';
-  document.getElementById('order-input-customer-search').value = '';
-  const infoBadge = document.getElementById('order-customer-selected-info');
-  if (infoBadge) infoBadge.style.display = 'none';
+  // Clear edit mode
+  const editIdInput = document.getElementById('order-input-edit-id');
+  if (editIdInput) editIdInput.value = '';
 
+  const titleEl = document.getElementById('order-modal-title');
+  if (titleEl) titleEl.textContent = 'Add New Order';
+
+  const submitBtn = document.getElementById('order-btn-submit');
+  if (submitBtn) submitBtn.textContent = 'Submit Order';
+
+  // Clear inputs
+  const custSearchInput = document.getElementById('order-input-customer-search');
+  if (custSearchInput) custSearchInput.value = '';
+  const hiddenCustInput = document.getElementById('order-input-customer');
+  if (hiddenCustInput) hiddenCustInput.value = '';
+
+  const custSummaryCard = document.getElementById('order-selected-customer-summary');
+  if (custSummaryCard) custSummaryCard.style.display = 'none';
+
+  // Reset address selector
   const addrGroup = document.getElementById('order-address-selector-group');
   if (addrGroup) addrGroup.style.display = 'none';
-  const addrNumInput = document.getElementById('order-input-selected-address-num');
-  if (addrNumInput) addrNumInput.value = '1';
 
   // Reset Meal credit option box
   const mealCreditBox = document.getElementById('order-meal-credit-box');
@@ -1098,36 +1291,12 @@ function openAddOrderModal(preselectedContactId = null) {
   if (mealCreditBox) mealCreditBox.style.display = 'none';
   if (mealCreditCheckbox) mealCreditCheckbox.checked = false;
 
-  // Reset portion selector to Standard
-  selectedOrderPortion = 'Standard';
-  const btnStd = document.getElementById('portion-btn-standard');
-  const btnSml = document.getElementById('portion-btn-small');
-  if (btnStd) btnStd.classList.add('active');
-  if (btnSml) btnSml.classList.remove('active');
-  const portionInput = document.getElementById('order-input-portion');
-  if (portionInput) portionInput.value = 'Standard';
-
-  // Update current pricing labels in modal
-  const pricing = dbGetPricing();
-  const stdLbl = document.getElementById('order-lbl-standard-price');
-  const smlLbl = document.getElementById('order-lbl-small-price');
-  if (stdLbl) stdLbl.textContent = formatRM(pricing.standard);
-  if (smlLbl) smlLbl.textContent = formatRM(pricing.small);
+  // Reset meal items to 1 Standard meal
+  orderMealItems = [{ id: 1, portion: 'Standard', addons: new Set() }];
+  renderOrderMealItems();
 
   document.getElementById('order-input-quantity').value = 1;
   document.getElementById('order-input-remark').value = '';
-
-  // Reset add-ons
-  selectedOrderAddons.clear();
-  ['protein', 'vege', 'rice'].forEach(type => {
-    const btn = document.getElementById(`addon-btn-${type}`);
-    if (btn) btn.classList.remove('active');
-  });
-  const addonsHidden = document.getElementById('order-input-addons');
-  if (addonsHidden) addonsHidden.value = '';
-
-  // Refresh addon price tags
-  refreshAddonPriceTags();
 
   // Reset Rider selection & fee
   refreshOrderRiderOptions('');
@@ -1152,6 +1321,114 @@ function openAddOrderModal(preselectedContactId = null) {
   document.getElementById('add-order-modal').classList.add('active');
 }
 
+function openEditOrderModal(orderId) {
+  const ord = cachedOrders[orderId];
+  if (!ord) {
+    showMaterialToast('Order not found', 'error');
+    return;
+  }
+
+  // Set edit ID & Modal Title & Button
+  const editIdInput = document.getElementById('order-input-edit-id');
+  if (editIdInput) editIdInput.value = orderId;
+
+  const titleEl = document.getElementById('order-modal-title');
+  if (titleEl) titleEl.textContent = 'Edit Order';
+
+  const submitBtn = document.getElementById('order-btn-submit');
+  if (submitBtn) submitBtn.textContent = 'Update Order';
+
+  // 1. Customer
+  const custId = ord.contactId;
+  const customer = (custId && cachedContacts[custId])
+    ? cachedContacts[custId]
+    : { id: custId || '', name: ord.customerName || '', phone: ord.customerPhone || '', address: ord.address || '', remark: '' };
+
+  selectOrderCustomer(customer);
+  const custSearchInput = document.getElementById('order-input-customer-search');
+  if (custSearchInput) custSearchInput.value = customer.name;
+
+  // Setup address selection if customer has 2 addresses
+  if (customer.address && customer.address2) {
+    if (ord.address === customer.address2) {
+      selectOrderDeliveryAddress(2);
+    } else {
+      selectOrderDeliveryAddress(1);
+    }
+  }
+
+  // 2. Date
+  selectedOrderDates.clear();
+  selectedOrderDates.add(ord.date);
+  const weekOffset = getWeekOffsetForDate(ord.date);
+  renderOrderDateCards(ord.date, weekOffset);
+
+  // 3. Meal items & Add-ons
+  if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+    orderMealItems = ord.items.map((it, idx) => ({
+      id: idx + 1,
+      portion: it.portion || 'Standard',
+      addons: new Set(Array.isArray(it.addons) ? it.addons : [])
+    }));
+  } else {
+    const qty = parseInt(ord.quantity) || 1;
+    const p = ord.portion || 'Standard';
+    const addonsList = Array.isArray(ord.addons) ? ord.addons : [];
+    orderMealItems = [];
+    for (let i = 1; i <= qty; i++) {
+      orderMealItems.push({
+        id: i,
+        portion: p,
+        addons: new Set(addonsList)
+      });
+    }
+  }
+  renderOrderMealItems();
+
+  const qtyInput = document.getElementById('order-input-quantity');
+  if (qtyInput) qtyInput.value = orderMealItems.length;
+
+  // 4. Rider & Delivery Fee
+  refreshOrderRiderOptions(ord.riderId || '');
+  const rdrFeeInput = document.getElementById('order-input-rider-fee');
+  if (rdrFeeInput) {
+    rdrFeeInput.value = (parseFloat(ord.riderFee) || 0).toFixed(2);
+  }
+
+  // Rider credit checkbox
+  const rdrCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
+  if (rdrCreditCheckbox) {
+    rdrCreditCheckbox.checked = !!ord.riderFeePaidByCredit;
+  }
+
+  // 5. Meal Package credit checkbox
+  const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
+  if (mealCreditCheckbox) {
+    const wasPackage = (ord.paymentStatus === 'Package') ||
+      (ord.remark && ord.remark.includes('Meal Credit')) ||
+      (ord.items && ord.items.some(it => it.isPackage)) ||
+      (ord.foodAmount === 0 && ord.foodUnitPrice === 0);
+    mealCreditCheckbox.checked = wasPackage;
+  }
+
+  // 6. Remark
+  const remarkInput = document.getElementById('order-input-remark');
+  if (remarkInput) {
+    let cleanRemark = ord.remark || '';
+    cleanRemark = cleanRemark.replace(/\(Paid via Meal Credit[^)]*\)/g, '').replace(/•?\s*Rider Paid by Credit/g, '').trim();
+    remarkInput.value = cleanRemark;
+  }
+
+  // 7. Payment status
+  selectOrderPaymentStatus(ord.paymentStatus || 'Unpaid', false);
+
+  // 8. Calculations
+  updateOrderFormCalculations();
+
+  // 9. Show modal
+  document.getElementById('add-order-modal').classList.add('active');
+}
+
 function openAddOrderForCustomer(contactId) {
   if (document.getElementById('customer-profile-modal')) {
     closeCustomerProfileModal();
@@ -1164,27 +1441,60 @@ function closeAddOrderModal() {
 }
 
 function updateOrderFormCalculations() {
-  const quantity = parseInt(document.getElementById('order-input-quantity').value) || 1;
+  const quantity = orderMealItems.length || 1;
+  const qtyInput = document.getElementById('order-input-quantity');
+  if (qtyInput) qtyInput.value = quantity;
+
   const datesArr = Array.from(selectedOrderDates);
   const datesCount = datesArr.length;
   const totalMealsCount = datesCount * quantity;
 
   const contactId = document.getElementById('order-input-customer')?.value;
   const customer = contactId ? cachedContacts[contactId] : null;
-  const portion = selectedOrderPortion || 'Standard';
 
   const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
-  const hasCreditForPortion = checkCustomerHasCreditForPortion(customer, portion);
-  const isUseMealCredit = !!(customer && hasCreditForPortion && mealCreditCheckbox && mealCreditCheckbox.checked);
+  const isUseMealCredit = !!(customer && mealCreditCheckbox && mealCreditCheckbox.checked);
 
   const pricing = dbGetPricing();
-  const unitPrice = isUseMealCredit ? 0 : (portion === 'Small' ? pricing.small : pricing.standard);
 
-  // Add-ons are ALWAYS charged, even for Package/credit meals
-  let addonPerMeal = 0;
-  if (selectedOrderAddons.has('protein')) addonPerMeal += parseFloat(pricing.addonProtein) || 2.00;
-  if (selectedOrderAddons.has('vege')) addonPerMeal += parseFloat(pricing.addonVege) || 1.50;
-  if (selectedOrderAddons.has('rice')) addonPerMeal += parseFloat(pricing.addonRice) || 1.00;
+  // Customer meal credits
+  let curStdCredit = customer ? (parseInt(customer.creditStandard) || 0) : 0;
+  let curSmlCredit = customer ? (parseInt(customer.creditSmall) || 0) : 0;
+
+  // Addons total per delivery day (sum over orderMealItems)
+  let dayAddonsTotal = 0;
+  orderMealItems.forEach(item => {
+    if (item.addons.has('protein')) dayAddonsTotal += parseFloat(pricing.addonProtein) || 2.00;
+    if (item.addons.has('vege')) dayAddonsTotal += parseFloat(pricing.addonVege) || 1.50;
+    if (item.addons.has('rice')) dayAddonsTotal += parseFloat(pricing.addonRice) || 1.00;
+  });
+  const totalAddonsAllDates = dayAddonsTotal * datesCount;
+
+  // Base food price calculation
+  let simStdCredit = curStdCredit;
+  let simSmlCredit = curSmlCredit;
+  let totalBaseFoodPayableAllDates = 0;
+
+  for (let d = 0; d < datesCount; d++) {
+    orderMealItems.forEach(item => {
+      let isCovered = false;
+      if (isUseMealCredit) {
+        if (item.portion === 'Small' && simSmlCredit > 0) {
+          simSmlCredit--;
+          isCovered = true;
+        } else if (item.portion === 'Standard' && simStdCredit > 0) {
+          simStdCredit--;
+          isCovered = true;
+        }
+      }
+      if (!isCovered) {
+        const itemBase = item.portion === 'Small' ? pricing.small : pricing.standard;
+        totalBaseFoodPayableAllDates += itemBase;
+      }
+    });
+  }
+
+  const totalFoodPayableAllDates = totalBaseFoodPayableAllDates + totalAddonsAllDates;
 
   // Rider Delivery Fee & Credit Calculation
   const riderFeeInput = document.getElementById('order-input-rider-fee');
@@ -1201,11 +1511,7 @@ function updateOrderFormCalculations() {
   }
   const riderPayable = totalRiderFee - riderCoveredByCredit;
 
-  // Food Total
-  const foodPerDate = (unitPrice + addonPerMeal) * quantity;
-  const foodTotal = foodPerDate * datesCount;
-
-  const total = foodTotal + riderPayable;
+  const total = totalFoodPayableAllDates + riderPayable;
 
   // Dynamic Payment Status Label & Options
   const lblPaymentStatus = document.getElementById('order-lbl-payment-status');
@@ -1225,13 +1531,12 @@ function updateOrderFormCalculations() {
       }
     } else {
       // Meal covered by credit, but rider fee or add-on is payable in cash!
-      // User can choose Paid or Unpaid for the rider fee
-      setPackagePaymentOptionEnabled(false); // Disable Package since cash is payable
+      setPackagePaymentOptionEnabled(false);
       if (currentPayment === 'Package') {
         selectOrderPaymentStatus('Unpaid', false);
       }
       if (lblPaymentStatus) {
-        if (riderPayable > 0 && foodTotal === 0) {
+        if (riderPayable > 0 && totalFoodPayableAllDates === 0) {
           lblPaymentStatus.textContent = `Rider Fee Payment (${formatRM(riderPayable)}) *`;
         } else if (riderPayable > 0) {
           lblPaymentStatus.textContent = `Payment Status (${formatRM(total)}) *`;
@@ -1240,7 +1545,11 @@ function updateOrderFormCalculations() {
         }
       }
       if (hintPaymentStatus) {
-        hintPaymentStatus.textContent = '🍱 Food in Package • Rider fee payable';
+        const parts = [];
+        if (totalBaseFoodPayableAllDates === 0) parts.push('🍱 Meal base in Package');
+        if (totalAddonsAllDates > 0) parts.push(`Add-ons: ${formatRM(totalAddonsAllDates)}`);
+        if (riderPayable > 0) parts.push(`Rider: ${formatRM(riderPayable)}`);
+        hintPaymentStatus.textContent = parts.join(' • ');
         hintPaymentStatus.style.color = '#0284c7';
       }
     }
@@ -1262,7 +1571,7 @@ function updateOrderFormCalculations() {
 
   const titleEl = document.getElementById('order-selected-food-title');
   if (titleEl) {
-    const portionTag = portion === 'Small' ? 'Small' : 'Standard';
+    const portionsSummary = orderMealItems.map(m => m.portion === 'Small' ? 'Small' : 'Standard').join('+');
     if (datesArr.length === 0) {
       titleEl.textContent = 'Please select meal date(s)';
     } else if (datesArr.length === 1) {
@@ -1270,21 +1579,21 @@ function updateOrderFormCalculations() {
       const weekDays = getWeekDays(0);
       const matched = weekDays.find(w => w.dateStr === datesArr[0]);
       const foodTitle = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
-      titleEl.textContent = `${matched ? matched.day : ''}: ${foodTitle} [${portionTag}]`;
+      titleEl.textContent = `${matched ? matched.day : ''}: ${foodTitle} [${quantity}×: ${portionsSummary}]`;
     } else {
-      titleEl.textContent = `${datesArr.length} Days [${portionTag}] (${totalMealsCount} Meals Total)`;
+      titleEl.textContent = `${datesArr.length} Days [${quantity} meals/day: ${portionsSummary}] (${totalMealsCount} Meals Total)`;
     }
   }
 
   const totalEl = document.getElementById('order-display-totalAmount');
   if (totalEl) {
     const notes = [];
-    if (isUseMealCredit) {
+    if (isUseMealCredit && totalBaseFoodPayableAllDates === 0) {
       notes.push('Meal: Package');
     } else if (datesCount > 0) {
-      notes.push(`Food: RM${foodTotal.toFixed(2)}`);
+      notes.push(`Food: RM${totalFoodPayableAllDates.toFixed(2)}`);
     }
-    if (addonPerMeal > 0) notes.push('Add-ons');
+    if (totalAddonsAllDates > 0) notes.push(`Add-ons: RM${totalAddonsAllDates.toFixed(2)}`);
 
     if (totalRiderFee > 0) {
       if (isUseRiderCredit && riderCoveredByCredit >= totalRiderFee) {
@@ -1310,7 +1619,7 @@ async function saveOrderSubmit(event) {
   event.preventDefault();
   let contactId = document.getElementById('order-input-customer').value;
   const searchInputVal = document.getElementById('order-input-customer-search').value.trim();
-  const quantity = parseInt(document.getElementById('order-input-quantity').value) || 1;
+  const quantity = orderMealItems.length || 1;
   const paymentStatus = document.getElementById('order-input-payment').value || 'Unpaid';
   const remark = document.getElementById('order-input-remark').value.trim();
 
@@ -1360,70 +1669,62 @@ async function saveOrderSubmit(event) {
   }
 
   const weekDays = getWeekDays(0);
-  const portion = selectedOrderPortion || 'Standard';
   const totalMealsToOrder = selectedDates.length * quantity;
 
-  // Check customer's Meal Credit for the SPECIFIC portion size
+  // Check customer's Meal Credit for each portion
   let currentStdCredit = parseInt(customer.creditStandard) || 0;
   let currentSmlCredit = parseInt(customer.creditSmall) || 0;
 
   const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
   const isUseMealCredit = !!(mealCreditCheckbox && mealCreditCheckbox.checked);
 
-  let creditDeducted = 0;
+  let stdCreditsDeducted = 0;
+  let smlCreditsDeducted = 0;
   let newStdCredit = currentStdCredit;
   let newSmlCredit = currentSmlCredit;
 
+  const pricing = dbGetPricing();
+
   if (isUseMealCredit) {
-    if (portion === 'Standard') {
-      if (currentStdCredit <= 0) {
-        showMaterialToast(`Cannot use Package for Standard portion: Customer has 0 Standard credits (Current: 0 Std, ${currentSmlCredit} Small).`, 'warning');
-        return;
-      }
-      creditDeducted = Math.min(currentStdCredit, totalMealsToOrder);
-      newStdCredit = currentStdCredit - creditDeducted;
-    } else if (portion === 'Small') {
-      if (currentSmlCredit <= 0) {
-        showMaterialToast(`Cannot use Package for Small portion: Customer has 0 Small credits (Current: ${currentStdCredit} Std, 0 Small).`, 'warning');
-        return;
-      }
-      creditDeducted = Math.min(currentSmlCredit, totalMealsToOrder);
-      newSmlCredit = currentSmlCredit - creditDeducted;
-    }
+    let stdNeeded = 0;
+    let smlNeeded = 0;
+    selectedDates.forEach(() => {
+      orderMealItems.forEach(item => {
+        if (item.portion === 'Small') smlNeeded++;
+        else stdNeeded++;
+      });
+    });
+
+    stdCreditsDeducted = Math.min(currentStdCredit, stdNeeded);
+    smlCreditsDeducted = Math.min(currentSmlCredit, smlNeeded);
+    newStdCredit = currentStdCredit - stdCreditsDeducted;
+    newSmlCredit = currentSmlCredit - smlCreditsDeducted;
 
     // If credit was deducted, update the contact record in DB and log transaction
-    if (creditDeducted > 0) {
+    if (stdCreditsDeducted > 0 || smlCreditsDeducted > 0) {
       await dbUpdateContact(contactId, {
         creditStandard: newStdCredit,
         creditSmall: newSmlCredit
       });
 
       if (typeof dbAddCreditLog === 'function') {
+        const logParts = [];
+        if (stdCreditsDeducted > 0) logParts.push(`${stdCreditsDeducted} Standard`);
+        if (smlCreditsDeducted > 0) logParts.push(`${smlCreditsDeducted} Small`);
         await dbAddCreditLog({
           contactId: contactId,
           customerName: customer.name,
           type: 'consume',
           action: 'Meal Consumed',
-          deltaStandard: portion === 'Standard' ? -creditDeducted : 0,
-          deltaSmall: portion === 'Small' ? -creditDeducted : 0,
+          deltaStandard: -stdCreditsDeducted,
+          deltaSmall: -smlCreditsDeducted,
           newStandard: newStdCredit,
           newSmall: newSmlCredit,
-          remark: `Used for ${totalMealsToOrder} meal(s) order (${portion})`
+          remark: `Used for ${totalMealsToOrder} meal(s) order (${logParts.join(', ')})`
         });
       }
     }
   }
-
-  // Determine pricing based on Package / Credit status
-  const pricing = dbGetPricing();
-  const unitPrice = isUseMealCredit ? 0 : (portion === 'Small' ? pricing.small : pricing.standard);
-
-  // Add-on cost per meal — ALWAYS charged even for Package/credit meals
-  const addonsArr = Array.from(selectedOrderAddons);
-  let addonPerMeal = 0;
-  if (selectedOrderAddons.has('protein')) addonPerMeal += parseFloat(pricing.addonProtein) || 2.00;
-  if (selectedOrderAddons.has('vege')) addonPerMeal += parseFloat(pricing.addonVege) || 1.50;
-  if (selectedOrderAddons.has('rice')) addonPerMeal += parseFloat(pricing.addonRice) || 1.00;
 
   // Rider Delivery Fee & Rider Credit Deduction
   const riderFeeInput = document.getElementById('order-input-rider-fee');
@@ -1467,25 +1768,6 @@ async function saveOrderSubmit(event) {
     }
   }
 
-  // Food and Rider amounts calculated separately
-  const foodAmount = (unitPrice + addonPerMeal) * quantity;
-  const riderPayablePerDate = (riderCreditDeducted >= totalRiderFeeForDates)
-    ? 0
-    : Math.max(0, riderFee - (riderCreditDeducted / selectedDates.length));
-  const totalAmount = foodAmount + riderPayablePerDate;
-
-  // Determine final payment status:
-  // If totalAmount is 0 (covered by Package credits), status is 'Package'
-  // If totalAmount > 0 (e.g. rider fee payable), respect user's selection: 'Paid' or 'Unpaid'!
-  let finalPaymentStatus = paymentStatus;
-  if (totalAmount === 0 && (isUseMealCredit || riderFeePaidByCredit)) {
-    finalPaymentStatus = 'Package';
-  } else {
-    finalPaymentStatus = (paymentStatus === 'Paid') ? 'Paid' : 'Unpaid';
-  }
-
-  const createdOrderIds = [];
-
   // Determine delivery address and assigned rider (supports Address 1 vs Address 2)
   let finalAddress = (customer.address || '').trim();
   let finalRiderId = customer.riderId || '';
@@ -1519,20 +1801,162 @@ async function saveOrderSubmit(event) {
     finalRiderName = '';
   }
 
+  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
+  if (editingOrderId && cachedOrders[editingOrderId]) {
+    const existingOrd = cachedOrders[editingOrderId];
+    const dateStr = selectedDates[0] || existingOrd.date;
+    const menuObj = dbGetMenuByDate(dateStr);
+    const matchedDay = weekDays.find(d => d.dateStr === dateStr);
+    const dayName = matchedDay ? matchedDay.day : (existingOrd.day || 'Monday');
+    const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : (existingOrd.foodName || 'Daily Healthy Meal');
+
+    const itemsData = orderMealItems.map((mealItem, idx) => {
+      let isItemCovered = isUseMealCredit;
+      const itemBasePrice = isItemCovered ? 0 : (mealItem.portion === 'Small' ? pricing.small : pricing.standard);
+
+      let itemAddonPrice = 0;
+      if (mealItem.addons.has('protein')) itemAddonPrice += parseFloat(pricing.addonProtein) || 2.00;
+      if (mealItem.addons.has('vege')) itemAddonPrice += parseFloat(pricing.addonVege) || 1.50;
+      if (mealItem.addons.has('rice')) itemAddonPrice += parseFloat(pricing.addonRice) || 1.00;
+
+      return {
+        id: idx + 1,
+        portion: mealItem.portion,
+        addons: Array.from(mealItem.addons),
+        unitPrice: itemBasePrice,
+        addonPrice: itemAddonPrice,
+        isPackage: isItemCovered
+      };
+    });
+
+    const dayFoodAmount = itemsData.reduce((acc, it) => acc + it.unitPrice + it.addonPrice, 0);
+    const dayRiderPayable = isUseRiderCredit ? 0 : riderFee;
+    const dayTotalAmount = dayFoodAmount + dayRiderPayable;
+
+    let finalPaymentStatus = paymentStatus;
+    if (dayTotalAmount === 0 && (isUseMealCredit || isUseRiderCredit)) {
+      finalPaymentStatus = 'Package';
+    } else {
+      finalPaymentStatus = (paymentStatus === 'Paid') ? 'Paid' : 'Unpaid';
+    }
+
+    let finalRemark = remark || customer.remark || '';
+    if (isUseMealCredit && !finalRemark.includes('Meal Credit')) {
+      finalRemark = finalRemark ? `${finalRemark} (Paid via Meal Credit)` : 'Paid via Meal Credit';
+    }
+    if (isUseRiderCredit && !finalRemark.includes('Rider Paid by Credit')) {
+      finalRemark = finalRemark ? `${finalRemark} • Rider Paid by Credit` : 'Rider Paid by Credit';
+    }
+
+    const allPortions = Array.from(new Set(orderMealItems.map(m => m.portion)));
+    const summaryPortion = allPortions.length === 1 ? allPortions[0] : 'Mixed';
+    const allAddons = Array.from(new Set(orderMealItems.flatMap(m => Array.from(m.addons))));
+
+    const updatedOrderRecord = {
+      contactId: contactId,
+      customerName: customer.name,
+      customerPhone: customer.phone || '',
+      address: finalAddress,
+      riderId: finalRiderId,
+      riderName: finalRiderName,
+      foodAmount: dayFoodAmount,
+      foodUnitPrice: itemsData[0]?.unitPrice || 0,
+      addonPerMeal: itemsData.reduce((sum, it) => sum + it.addonPrice, 0) / (quantity || 1),
+      riderFee: riderFee,
+      riderFeePaidByCredit: isUseRiderCredit,
+      date: dateStr,
+      day: dayName,
+      menuId: dateStr,
+      foodName: foodName,
+      portion: summaryPortion,
+      addons: allAddons,
+      items: itemsData,
+      unitPrice: itemsData[0]?.unitPrice || 0,
+      quantity: quantity,
+      totalAmount: dayTotalAmount,
+      paymentStatus: finalPaymentStatus,
+      remark: finalRemark
+    };
+
+    await dbUpdateOrder(editingOrderId, updatedOrderRecord);
+
+    closeAddOrderModal();
+    renderOrders();
+    if (typeof renderContacts === 'function') renderContacts();
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderKitchen === 'function') renderKitchen();
+
+    showMaterialToast('Order updated successfully', 'success');
+    if (typeof showCleanCheckmark === 'function') {
+      showCleanCheckmark('Order Updated');
+    }
+    return;
+  }
+
+  let stdPool = stdCreditsDeducted;
+  let smlPool = smlCreditsDeducted;
+  const createdOrderIds = [];
+
   for (const dateStr of selectedDates) {
     const menuObj = dbGetMenuByDate(dateStr);
     const matchedDay = weekDays.find(d => d.dateStr === dateStr);
     const dayName = matchedDay ? matchedDay.day : 'Monday';
     const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
 
+    // Construct itemized details for each meal
+    const itemsData = orderMealItems.map((mealItem, idx) => {
+      let isItemCovered = false;
+      if (mealItem.portion === 'Small' && smlPool > 0) {
+        smlPool--;
+        isItemCovered = true;
+      } else if (mealItem.portion === 'Standard' && stdPool > 0) {
+        stdPool--;
+        isItemCovered = true;
+      }
+
+      const itemBasePrice = isItemCovered ? 0 : (mealItem.portion === 'Small' ? pricing.small : pricing.standard);
+
+      let itemAddonPrice = 0;
+      if (mealItem.addons.has('protein')) itemAddonPrice += parseFloat(pricing.addonProtein) || 2.00;
+      if (mealItem.addons.has('vege')) itemAddonPrice += parseFloat(pricing.addonVege) || 1.50;
+      if (mealItem.addons.has('rice')) itemAddonPrice += parseFloat(pricing.addonRice) || 1.00;
+
+      return {
+        id: idx + 1,
+        portion: mealItem.portion,
+        addons: Array.from(mealItem.addons),
+        unitPrice: itemBasePrice,
+        addonPrice: itemAddonPrice,
+        isPackage: isItemCovered
+      };
+    });
+
+    const dayFoodAmount = itemsData.reduce((acc, it) => acc + it.unitPrice + it.addonPrice, 0);
+    const dayRiderPayable = (riderCreditDeducted >= totalRiderFeeForDates)
+      ? 0
+      : Math.max(0, riderFee - (riderCreditDeducted / selectedDates.length));
+    const dayTotalAmount = dayFoodAmount + dayRiderPayable;
+
+    // Determine final payment status for this date's order
+    let finalPaymentStatus = paymentStatus;
+    if (dayTotalAmount === 0 && (isUseMealCredit || riderFeePaidByCredit)) {
+      finalPaymentStatus = 'Package';
+    } else {
+      finalPaymentStatus = (paymentStatus === 'Paid') ? 'Paid' : 'Unpaid';
+    }
+
     let finalRemark = remark || customer.remark || '';
-    if (isUseMealCredit) {
-      const creditNote = `Paid via Meal Credit (${creditDeducted} deducted)`;
+    if (isUseMealCredit && (stdCreditsDeducted > 0 || smlCreditsDeducted > 0)) {
+      const creditNote = 'Paid via Meal Credit';
       finalRemark = finalRemark ? `${finalRemark} (${creditNote})` : creditNote;
     }
     if (riderFeePaidByCredit) {
       finalRemark = finalRemark ? `${finalRemark} • Rider Paid by Credit` : 'Rider Paid by Credit';
     }
+
+    const allPortions = Array.from(new Set(orderMealItems.map(m => m.portion)));
+    const summaryPortion = allPortions.length === 1 ? allPortions[0] : 'Mixed';
+    const allAddons = Array.from(new Set(orderMealItems.flatMap(m => Array.from(m.addons))));
 
     const orderRecord = {
       contactId: contactId,
@@ -1541,20 +1965,21 @@ async function saveOrderSubmit(event) {
       address: finalAddress,
       riderId: finalRiderId,
       riderName: finalRiderName,
-      foodAmount: foodAmount,
-      foodUnitPrice: unitPrice,
-      addonPerMeal: addonPerMeal,
+      foodAmount: dayFoodAmount,
+      foodUnitPrice: itemsData[0]?.unitPrice || 0,
+      addonPerMeal: itemsData.reduce((sum, it) => sum + it.addonPrice, 0) / (quantity || 1),
       riderFee: riderFee,
       riderFeePaidByCredit: riderFeePaidByCredit,
       date: dateStr,
       day: dayName,
       menuId: dateStr,
       foodName: foodName,
-      portion: portion,
-      addons: addonsArr.length > 0 ? addonsArr : [],
-      unitPrice: unitPrice,
+      portion: summaryPortion,
+      addons: allAddons,
+      items: itemsData,
+      unitPrice: itemsData[0]?.unitPrice || 0,
       quantity: quantity,
-      totalAmount: totalAmount,
+      totalAmount: dayTotalAmount,
       paymentStatus: finalPaymentStatus,
       remark: finalRemark
     };
@@ -1569,11 +1994,13 @@ async function saveOrderSubmit(event) {
   if (typeof renderDashboard === 'function') renderDashboard();
   if (typeof renderKitchen === 'function') renderKitchen();
 
-  if (creditDeducted > 0 || riderCreditDeducted > 0) {
+  if (stdCreditsDeducted > 0 || smlCreditsDeducted > 0 || riderCreditDeducted > 0) {
     const msgs = [];
-    if (creditDeducted > 0) {
-      const remainingCount = portion === 'Standard' ? newStdCredit : newSmlCredit;
-      msgs.push(`Deducted ${creditDeducted} ${portion} Meal Credit(s) (Bal: ${remainingCount})`);
+    if (stdCreditsDeducted > 0) {
+      msgs.push(`Deducted ${stdCreditsDeducted} Standard Meal Credit(s) (Bal: ${newStdCredit})`);
+    }
+    if (smlCreditsDeducted > 0) {
+      msgs.push(`Deducted ${smlCreditsDeducted} Small Meal Credit(s) (Bal: ${newSmlCredit})`);
     }
     if (riderCreditDeducted > 0) {
       msgs.push(`Deducted RM ${riderCreditDeducted.toFixed(2)} Rider Credit (Bal: RM ${newRiderCredit.toFixed(2)})`);

@@ -124,8 +124,19 @@ function renderKitchen() {
 
     let itemsHtml = '';
     items.forEach((item, idx) => {
-      const isSent = item.dispatched === true;
-      const portionTag = item.portion === 'Small' ? '🥣 Small' : '🍱 Standard';
+      const isSent = !!item.dispatched;
+      let itemDetailsStr = '';
+      if (item.items && Array.isArray(item.items) && item.items.length > 0) {
+        itemDetailsStr = item.items.map(it => {
+          const addonsList = Array.isArray(it.addons) ? it.addons : [];
+          const addonText = addonsList.length > 0 ? ` (+${addonsList.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})` : '';
+          return `#${it.id || ''} ${it.portion}${addonText}`.trim();
+        }).join(' • ');
+      } else {
+        const portionTag = item.portion === 'Small' ? '🥣 Small' : '🍱 Standard';
+        const addonText = (item.addons && item.addons.length > 0) ? ` (+${item.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})` : '';
+        itemDetailsStr = `${portionTag}${addonText}`;
+      }
       
       itemsHtml += `
         <div class="dispatch-item-card ${isSent ? 'is-sent' : ''}">
@@ -139,7 +150,10 @@ function renderKitchen() {
               <span style="flex:1;">${item.address || 'No address specified'}</span>
             </div>
             <div class="dispatch-food-info">
-              ${portionTag} × ${item.quantity} (${item.foodName})
+              🥗 <strong>${item.foodName}</strong> × ${item.quantity}
+              <div style="font-size: 0.75rem; color: #0f172a; font-weight: 700; margin-top: 2px;">
+                ${itemDetailsStr}
+              </div>
             </div>
           </div>
           <div>

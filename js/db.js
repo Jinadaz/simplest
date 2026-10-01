@@ -399,6 +399,24 @@ async function dbAddOrder(orderData) {
   return orderId;
 }
 
+async function dbUpdateOrder(orderId, updates) {
+  if (!cachedOrders[orderId]) return null;
+  const record = {
+    ...cachedOrders[orderId],
+    ...updates,
+    updatedAt: Date.now()
+  };
+  cachedOrders[orderId] = record;
+  notifyDataChanged();
+
+  if (isFirebaseLive && db) {
+    await db.ref(`orders/${orderId}`).update(record);
+  } else {
+    saveToLocalStorage();
+  }
+  return record;
+}
+
 async function dbUpdatePaymentStatus(orderId, paymentStatus) {
   const updates = {};
   if (paymentStatus) updates.paymentStatus = paymentStatus;

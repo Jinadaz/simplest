@@ -980,6 +980,214 @@
   color: #0f1715;
 }
 
+/* ─── Per-Meal Configuration Card in Add Order Modal ─── */
+.order-meal-items-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.order-meal-card {
+  background: var(--bg-surface-secondary, #f8fafc);
+  border: 1.5px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 0.65rem 0.8rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.03);
+  transition: border-color 0.2s ease;
+}
+
+.order-meal-card:hover {
+  border-color: #cbd5e1;
+}
+
+.order-meal-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.45rem;
+}
+
+.order-meal-num-badge {
+  font-size: 0.72rem;
+  font-weight: 800;
+  background: var(--primary-accent);
+  color: #ffffff;
+  padding: 1px 7px;
+  border-radius: 9999px;
+  line-height: 1.2;
+}
+
+.order-meal-price-badge {
+  font-size: 0.78rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  background: var(--primary-light);
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid #a7f3d0;
+}
+
+.order-meal-remove-btn {
+  border: none;
+  background: #fee2e2;
+  color: #ef4444;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+  line-height: 1;
+}
+
+.order-meal-remove-btn:hover {
+  background: #fecaca;
+  transform: scale(1.08);
+}
+
+.order-meal-portion-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.order-meal-pill {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-sm, 6px);
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg, #ffffff);
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-main);
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.order-meal-pill:hover {
+  border-color: var(--primary-accent);
+  background: var(--primary-light);
+}
+
+.order-meal-pill.active {
+  border-color: var(--primary-dark);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  box-shadow: 0 0 0 1px var(--primary-dark);
+}
+
+.order-meal-pill-price {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: var(--primary-accent);
+}
+
+.order-meal-addons-row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  flex-wrap: wrap;
+}
+
+.order-meal-addon-chips {
+  display: flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+.addon-chip-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg, #ffffff);
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.addon-chip-btn:hover {
+  border-color: var(--primary-accent);
+  background: var(--primary-light);
+}
+
+.addon-chip-btn.active {
+  border-color: var(--primary-accent);
+  background: var(--primary-light);
+  color: var(--primary-dark);
+  box-shadow: 0 0 0 1.5px var(--primary-accent);
+}
+
+.addon-chip-price {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: var(--primary-accent);
+  background: rgba(16, 185, 129, 0.12);
+  padding: 1px 5px;
+  border-radius: 9999px;
+  line-height: 1.2;
+}
+
+.addon-chip-btn.active .addon-chip-price {
+  background: var(--primary-accent);
+  color: #ffffff;
+}
+
+[data-theme="dark"] .order-meal-card {
+  background: #15221e;
+  border-color: #223530;
+}
+
+[data-theme="dark"] .order-meal-pill {
+  background: #1e293b;
+  border-color: #334155;
+  color: #f1f5f9;
+}
+
+[data-theme="dark"] .order-meal-pill.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  color: #34d399;
+  box-shadow: 0 0 0 1px #10b981;
+}
+
+[data-theme="dark"] .addon-chip-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .addon-chip-btn.active {
+  background: rgba(16, 185, 129, 0.18);
+  border-color: #10b981;
+  color: #34d399;
+}
+
+[data-theme="dark"] .addon-chip-btn.active .addon-chip-price {
+  background: #10b981;
+  color: #0f1715;
+}
+
+[data-theme="dark"] .order-meal-price-badge {
+  background: rgba(16, 185, 129, 0.15);
+  border-color: #10b981;
+  color: #34d399;
+}
+
 /* Quantity & Total Amount Row (Always 2 columns, side by side) */
 .order-qty-total-row {
   display: grid;
