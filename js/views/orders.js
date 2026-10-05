@@ -18,12 +18,24 @@ function setOrdersViewScope(scope) {
 function setOrdersDayOffset(offsetChange) {
   if (offsetChange === 0) ordersDayOffset = 0;
   else ordersDayOffset += offsetChange;
+  const now = new Date();
+  const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ordersDayOffset);
+  const targetYearMonth = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
+  if (typeof ensureOrdersMonthLoaded === 'function') {
+    ensureOrdersMonthLoaded(targetYearMonth);
+  }
   renderOrders();
 }
 
 function setOrdersMonthOffset(offsetChange) {
   if (offsetChange === 0) ordersMonthOffset = 0;
   else ordersMonthOffset += offsetChange;
+  const now = new Date();
+  const targetMonthDate = new Date(now.getFullYear(), now.getMonth() + ordersMonthOffset, 1);
+  const targetYearMonth = `${targetMonthDate.getFullYear()}-${String(targetMonthDate.getMonth() + 1).padStart(2, '0')}`;
+  if (typeof ensureOrdersMonthLoaded === 'function') {
+    ensureOrdersMonthLoaded(targetYearMonth);
+  }
   renderOrders();
 }
 
@@ -51,6 +63,25 @@ function formatOrderItemsDetails(items) {
       : '';
     return `#${it.id || ''} ${it.portion || 'Standard'}${addonText}`.trim();
   }).join(' • ');
+}
+
+function renderOrderPortionSummaryBadges(ord) {
+  if (!ord) return '';
+  if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+    const stdCnt = ord.items.filter(i => (i.portion || '').toLowerCase() !== 'small').length;
+    const smlCnt = ord.items.filter(i => (i.portion || '').toLowerCase() === 'small').length;
+    if (stdCnt > 0 && smlCnt > 0) {
+      return `<span class="portion-badge portion-standard" style="font-size: 0.65rem;">${stdCnt} Std</span> <span class="portion-badge portion-small" style="font-size: 0.65rem;">${smlCnt} Sml</span>`;
+    } else if (smlCnt > 0) {
+      return `<span class="portion-badge portion-small" style="font-size: 0.65rem;">Small</span>`;
+    } else {
+      return `<span class="portion-badge portion-standard" style="font-size: 0.65rem;">Std</span>`;
+    }
+  }
+  const p = ord.portion || 'Standard';
+  const pLabel = (p === 'Small') ? 'Small' : ((p === 'Mixed') ? 'Mixed' : 'Standard');
+  const pClass = (p === 'Small') ? 'portion-small' : 'portion-standard';
+  return `<span class="portion-badge ${pClass}" style="font-size: 0.65rem;">${pLabel}</span>`;
 }
 
 function getOrderPriceBreakdown(ord) {
@@ -130,6 +161,9 @@ function renderOrders() {
     const yyyy = targetMonthDate.getFullYear();
     const mm = String(targetMonthDate.getMonth() + 1).padStart(2, '0');
     const yearMonth = `${yyyy}-${mm}`;
+    if (typeof ensureOrdersMonthLoaded === 'function') {
+      ensureOrdersMonthLoaded(yearMonth);
+    }
     const monthName = targetMonthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     const lastDayDate = new Date(yyyy, targetMonthDate.getMonth() + 1, 0);
     const lastDay = lastDayDate.getDate();
@@ -269,6 +303,7 @@ function renderOrders() {
           <td>
             <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
               <span style="font-weight: 700;">${ord.foodName}</span>
+              ${renderOrderPortionSummaryBadges(ord)}
               <span style="color: var(--primary-dark); font-weight: 800;">× ${ord.quantity}</span>
             </div>
             ${ord.items && Array.isArray(ord.items) && ord.items.length > 0 ? `
@@ -344,7 +379,7 @@ function renderOrders() {
             </div>
           </div>
           <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-            🥗 ${ord.foodName} × ${ord.quantity}
+            🥗 ${ord.foodName} ${renderOrderPortionSummaryBadges(ord)} × ${ord.quantity}
             ${ord.items && Array.isArray(ord.items) && ord.items.length > 0 ? `
               <div style="font-size: 0.725rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
                 ${formatOrderItemsDetails(ord.items)}
@@ -420,6 +455,10 @@ function renderOrders() {
   const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
   const dd = String(targetDate.getDate()).padStart(2, '0');
   const targetDateStr = `${yyyy}-${mm}-${dd}`;
+  const targetYearMonth = `${yyyy}-${mm}`;
+  if (typeof ensureOrdersMonthLoaded === 'function') {
+    ensureOrdersMonthLoaded(targetYearMonth);
+  }
 
   const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
   const formattedDate = formatDateReadable(targetDateStr);
@@ -509,6 +548,7 @@ function renderOrders() {
         <td>
           <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
             <span style="font-weight: 700;">${ord.foodName}</span>
+            ${renderOrderPortionSummaryBadges(ord)}
             <span style="color: var(--primary-dark); font-weight: 800;">× ${ord.quantity}</span>
           </div>
           ${ord.items && Array.isArray(ord.items) && ord.items.length > 0 ? `
@@ -572,7 +612,7 @@ function renderOrders() {
           </div>
         </div>
         <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
-          🥗 ${ord.foodName} × ${ord.quantity}
+          🥗 ${ord.foodName} ${renderOrderPortionSummaryBadges(ord)} × ${ord.quantity}
           ${ord.items && Array.isArray(ord.items) && ord.items.length > 0 ? `
             <div style="font-size: 0.725rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
               ${formatOrderItemsDetails(ord.items)}
@@ -672,7 +712,67 @@ async function deleteOrderAction(orderId) {
   }
 }
 
-// Customer Search Autocomplete Handler
+// Customer Search Autocomplete Handler with Keyboard Navigation
+let orderCustomerSearchResults = [];
+let orderCustomerHighlightedIndex = -1;
+
+function updateOrderCustomerHighlight() {
+  const dropdown = document.getElementById('order-customer-dropdown');
+  if (!dropdown) return;
+  const items = dropdown.querySelectorAll('.customer-search-item[data-index]');
+  items.forEach((item, idx) => {
+    if (idx === orderCustomerHighlightedIndex) {
+      item.classList.add('active');
+      item.scrollIntoView({ block: 'nearest' });
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+
+function handleOrderCustomerKeydown(e) {
+  const dropdown = document.getElementById('order-customer-dropdown');
+  const isDropdownOpen = dropdown && dropdown.style.display !== 'none';
+  const hasResults = orderCustomerSearchResults && orderCustomerSearchResults.length > 0;
+
+  if (e.key === 'ArrowDown') {
+    if (!isDropdownOpen) {
+      handleOrderCustomerSearch(e.target.value);
+      return;
+    }
+    if (!hasResults) return;
+    e.preventDefault();
+    if (orderCustomerHighlightedIndex < orderCustomerSearchResults.length - 1) {
+      orderCustomerHighlightedIndex++;
+    } else {
+      orderCustomerHighlightedIndex = 0;
+    }
+    updateOrderCustomerHighlight();
+  } else if (e.key === 'ArrowUp') {
+    if (!isDropdownOpen || !hasResults) return;
+    e.preventDefault();
+    if (orderCustomerHighlightedIndex > 0) {
+      orderCustomerHighlightedIndex--;
+    } else {
+      orderCustomerHighlightedIndex = orderCustomerSearchResults.length - 1;
+    }
+    updateOrderCustomerHighlight();
+  } else if (e.key === 'Enter') {
+    if (isDropdownOpen && hasResults) {
+      e.preventDefault();
+      const targetIdx = orderCustomerHighlightedIndex >= 0 ? orderCustomerHighlightedIndex : 0;
+      if (orderCustomerSearchResults[targetIdx]) {
+        selectOrderCustomer(orderCustomerSearchResults[targetIdx]);
+      }
+    }
+  } else if (e.key === 'Escape') {
+    if (dropdown) {
+      dropdown.style.display = 'none';
+      orderCustomerHighlightedIndex = -1;
+    }
+  }
+}
+
 function handleOrderCustomerSearch(query) {
   const dropdown = document.getElementById('order-customer-dropdown');
   if (!dropdown) return;
@@ -685,16 +785,20 @@ function handleOrderCustomerSearch(query) {
     return (c.name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q);
   });
 
+  orderCustomerSearchResults = filtered;
+  orderCustomerHighlightedIndex = -1;
+
   if (filtered.length === 0) {
-    dropdown.innerHTML = `<div class="customer-search-item" style="color:var(--text-muted);">No customer matches found</div>`;
+    dropdown.innerHTML = `<div class="customer-search-item" style="color:var(--text-muted); cursor:default;">No customer matches found</div>`;
     dropdown.style.display = 'block';
     return;
   }
 
   dropdown.innerHTML = '';
-  filtered.forEach(c => {
+  filtered.forEach((c, idx) => {
     const item = document.createElement('div');
     item.className = 'customer-search-item';
+    item.setAttribute('data-index', idx);
     const stdC = c.creditStandard || 0;
     const smlC = c.creditSmall || 0;
     const credTag = (stdC > 0 || smlC > 0)
@@ -713,6 +817,10 @@ function handleOrderCustomerSearch(query) {
       </div>
     `;
     item.onclick = () => selectOrderCustomer(c);
+    item.onmouseenter = () => {
+      orderCustomerHighlightedIndex = idx;
+      updateOrderCustomerHighlight();
+    };
     dropdown.appendChild(item);
   });
 
@@ -869,6 +977,7 @@ function handleOrderRiderSelectChange(selectedRiderId) {
 }
 
 function selectOrderCustomer(customer) {
+  orderCustomerHighlightedIndex = -1;
   document.getElementById('order-input-customer').value = customer.id;
   document.getElementById('order-input-customer-search').value = `${customer.name} (${customer.phone || ''})`;
   document.getElementById('order-customer-dropdown').style.display = 'none';
@@ -1278,6 +1387,11 @@ function openAddOrderModal(preselectedContactId = null) {
   const hiddenCustInput = document.getElementById('order-input-customer');
   if (hiddenCustInput) hiddenCustInput.value = '';
 
+  const custDropdown = document.getElementById('order-customer-dropdown');
+  if (custDropdown) custDropdown.style.display = 'none';
+  orderCustomerHighlightedIndex = -1;
+  orderCustomerSearchResults = [];
+
   const custSummaryCard = document.getElementById('order-selected-customer-summary');
   if (custSummaryCard) custSummaryCard.style.display = 'none';
 
@@ -1372,7 +1486,8 @@ function openEditOrderModal(orderId) {
     }));
   } else {
     const qty = parseInt(ord.quantity) || 1;
-    const p = ord.portion || 'Standard';
+    let p = ord.portion || 'Standard';
+    if (p !== 'Small' && p !== 'Standard') p = 'Standard';
     const addonsList = Array.isArray(ord.addons) ? ord.addons : [];
     orderMealItems = [];
     for (let i = 1; i <= qty; i++) {

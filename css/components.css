@@ -716,14 +716,17 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  transition: background-color 0.12s ease;
 }
 
 .customer-search-item:last-child {
   border-bottom: none;
 }
 
-.customer-search-item:hover {
-  background: #f8fafc;
+.customer-search-item:hover,
+.customer-search-item.active {
+  background: #e6f7ef;
+  color: var(--primary-dark, #065f46);
 }
 
 .order-date-cards-grid {
@@ -1387,8 +1390,10 @@
   color: #f8fafc;
 }
 
-[data-theme="dark"] .customer-search-item:hover {
-  background: #1e2e2a;
+[data-theme="dark"] .customer-search-item:hover,
+[data-theme="dark"] .customer-search-item.active {
+  background: #1e3a2f;
+  color: #a7f3d0;
 }
 
 [data-theme="dark"] .btn-outline {

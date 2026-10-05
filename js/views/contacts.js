@@ -180,6 +180,9 @@ function renderContacts() {
             <button class="btn btn-primary btn-sm" onclick="openAddOrderForCustomer('${contact.id}')">
               ${getSvgIcon('plus', 'sm')} Order
             </button>
+            <button class="btn btn-outline btn-sm" onclick="openCustomerFullHistoryModal('${contact.id}')" title="View Full Order History & Unpaid Dues (大窗口)" style="font-weight: 700;">
+              📊 History
+            </button>
             <button class="btn btn-outline btn-sm" onclick="openCustomerProfileModal('${contact.id}')">
               ${getSvgIcon('user', 'sm')} Profile
             </button>
@@ -219,9 +222,12 @@ function renderContacts() {
             ${assignedRiderDisplay2}
           </div>
         ` : ''}
-        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
+        <div style="display: flex; align-items: center; justify-content: flex-end; gap: 0.35rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color); flex-wrap: wrap;">
           <button class="btn btn-primary btn-sm" onclick="openAddOrderForCustomer('${contact.id}')">
             ${getSvgIcon('plus', 'sm')} Order
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="openCustomerFullHistoryModal('${contact.id}')" title="Full Order History & Financial Ledger" style="font-weight: 700;">
+            📊 History
           </button>
           <button class="btn btn-outline btn-sm" onclick="openCustomerProfileModal('${contact.id}')">
             ${getSvgIcon('user', 'sm')} Profile
@@ -380,6 +386,66 @@ async function saveContactSubmit(event) {
 /* ─────────────────────────────────────────
    PACKAGE PURCHASE MODAL HANDLERS
 ───────────────────────────────────────── */
+let pkgCustomerSearchResults = [];
+let pkgCustomerHighlightedIndex = -1;
+
+function updatePkgCustomerHighlight() {
+  const dropdown = document.getElementById('pkg-customer-dropdown');
+  if (!dropdown) return;
+  const items = dropdown.querySelectorAll('.customer-search-item[data-index]');
+  items.forEach((item, idx) => {
+    if (idx === pkgCustomerHighlightedIndex) {
+      item.classList.add('active');
+      item.scrollIntoView({ block: 'nearest' });
+    } else {
+      item.classList.remove('active');
+    }
+  });
+}
+
+function handlePkgCustomerKeydown(e) {
+  const dropdown = document.getElementById('pkg-customer-dropdown');
+  const isDropdownOpen = dropdown && dropdown.style.display !== 'none';
+  const hasResults = pkgCustomerSearchResults && pkgCustomerSearchResults.length > 0;
+
+  if (e.key === 'ArrowDown') {
+    if (!isDropdownOpen) {
+      handlePkgCustomerSearch(e.target.value);
+      return;
+    }
+    if (!hasResults) return;
+    e.preventDefault();
+    if (pkgCustomerHighlightedIndex < pkgCustomerSearchResults.length - 1) {
+      pkgCustomerHighlightedIndex++;
+    } else {
+      pkgCustomerHighlightedIndex = 0;
+    }
+    updatePkgCustomerHighlight();
+  } else if (e.key === 'ArrowUp') {
+    if (!isDropdownOpen || !hasResults) return;
+    e.preventDefault();
+    if (pkgCustomerHighlightedIndex > 0) {
+      pkgCustomerHighlightedIndex--;
+    } else {
+      pkgCustomerHighlightedIndex = pkgCustomerSearchResults.length - 1;
+    }
+    updatePkgCustomerHighlight();
+  } else if (e.key === 'Enter') {
+    if (isDropdownOpen && hasResults) {
+      e.preventDefault();
+      const targetIdx = pkgCustomerHighlightedIndex >= 0 ? pkgCustomerHighlightedIndex : 0;
+      if (pkgCustomerSearchResults[targetIdx]) {
+        selectPkgCustomer(pkgCustomerSearchResults[targetIdx]);
+      }
+    }
+  } else if (e.key === 'Escape') {
+    if (dropdown) {
+      dropdown.style.display = 'none';
+      pkgCustomerHighlightedIndex = -1;
+    }
+  }
+}
+
 function handlePkgCustomerSearch(query) {
   const dropdown = document.getElementById('pkg-customer-dropdown');
   if (!dropdown) return;
@@ -392,22 +458,30 @@ function handlePkgCustomerSearch(query) {
     return (c.name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q);
   });
 
+  pkgCustomerSearchResults = filtered;
+  pkgCustomerHighlightedIndex = -1;
+
   if (filtered.length === 0) {
-    dropdown.innerHTML = `<div class="customer-search-item" style="color:var(--text-muted);">No customer matches found</div>`;
+    dropdown.innerHTML = `<div class="customer-search-item" style="color:var(--text-muted); cursor:default;">No customer matches found</div>`;
     dropdown.style.display = 'block';
     return;
   }
 
   dropdown.innerHTML = '';
-  filtered.forEach(c => {
+  filtered.forEach((c, idx) => {
     const item = document.createElement('div');
     item.className = 'customer-search-item';
+    item.setAttribute('data-index', idx);
     item.innerHTML = `
       <div>
         <strong>${c.name}</strong> <span style="font-size:0.75rem; color:var(--text-muted);">(${c.phone || 'No phone'})</span>
       </div>
     `;
     item.onclick = () => selectPkgCustomer(c);
+    item.onmouseenter = () => {
+      pkgCustomerHighlightedIndex = idx;
+      updatePkgCustomerHighlight();
+    };
     dropdown.appendChild(item);
   });
 
@@ -415,6 +489,7 @@ function handlePkgCustomerSearch(query) {
 }
 
 function selectPkgCustomer(customer) {
+  pkgCustomerHighlightedIndex = -1;
   document.getElementById('pkg-input-customer-id').value = customer.id;
   document.getElementById('pkg-input-customer-search').value = `${customer.name} (${customer.phone || ''})`;
   document.getElementById('pkg-customer-dropdown').style.display = 'none';
@@ -757,22 +832,87 @@ function openCustomerProfileModal(contactId) {
   historyContainer.innerHTML = '';
 
   if (customerOrders.length === 0) {
-    historyContainer.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1rem;">No order history found.</div>`;
+    historyContainer.innerHTML = `<div style="font-size: 0.85rem; color: var(--text-muted); text-align: center; padding: 1.5rem 1rem;">No order history found.</div>`;
   } else {
+    customerOrders.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
+
     customerOrders.forEach(ord => {
       const statusClass = ord.paymentStatus === 'Paid' ? 'badge-paid' : (ord.paymentStatus === 'Package' ? 'badge-package' : 'badge-unpaid');
+      
+      let portionSummaryText = '';
+      let itemsDetailHtml = '';
+      if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+        const stdCount = ord.items.filter(i => (i.portion || '').toLowerCase() !== 'small').length;
+        const smlCount = ord.items.filter(i => (i.portion || '').toLowerCase() === 'small').length;
+        const parts = [];
+        if (stdCount > 0) parts.push(`${stdCount} Standard`);
+        if (smlCount > 0) parts.push(`${smlCount} Small`);
+        portionSummaryText = parts.join(', ');
+
+        const itemsStr = ord.items.map(it => {
+          const addonsList = Array.isArray(it.addons) ? it.addons : Array.from(it.addons || []);
+          const addonText = addonsList.length > 0 
+            ? ` (+${addonsList.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})`
+            : '';
+          return `#${it.id || ''} ${it.portion || 'Standard'}${addonText}`.trim();
+        }).join(' • ');
+
+        itemsDetailHtml = `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; line-height: 1.35; margin-top: 4px; padding-left: 2px;">${itemsStr}</div>`;
+      } else {
+        const pName = (ord.portion === 'Small') ? 'Small' : ((ord.portion === 'Mixed') ? 'Mixed' : 'Standard');
+        portionSummaryText = `${pName} × ${ord.quantity || 1}`;
+      }
+
+      let createdTimeStr = '';
+      if (ord.createdAt) {
+        const cdt = new Date(ord.createdAt);
+        createdTimeStr = `${cdt.getFullYear()}-${String(cdt.getMonth() + 1).padStart(2, '0')}-${String(cdt.getDate()).padStart(2, '0')} ${String(cdt.getHours()).padStart(2, '0')}:${String(cdt.getMinutes()).padStart(2, '0')}`;
+      }
+
       const itemHtml = `
-        <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.65rem 0.85rem; margin-bottom: 0.4rem; display: flex; align-items: center; justify-content: space-between;">
-          <div>
-            <div style="font-size: 0.85rem; font-weight: 700; color: var(--text-main);">${ord.day}, ${formatDateReadable(ord.date)}</div>
-            <div style="font-size: 0.8rem; color: var(--text-muted);">${ord.foodName} (${ord.portion === 'Small' ? 'Small' : 'Standard'}) × ${ord.quantity}</div>
+        <div style="background: var(--bg-surface, #ffffff); border: 1px solid var(--border-color); border-radius: 10px; padding: 0.75rem 0.9rem; margin-bottom: 0.55rem; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+          <!-- Top Row: Date & Status -->
+          <div style="display: flex; align-items: center; justify-content: space-between; border-bottom: 1px dashed var(--border-color); padding-bottom: 0.45rem;">
+            <div style="display: flex; align-items: center; gap: 0.45rem;">
+              <span style="font-size: 0.95rem;">📅</span>
+              <span style="font-size: 0.92rem; font-weight: 800; color: var(--text-main); letter-spacing: -0.01em;">${ord.date || '--'}</span>
+              ${ord.day ? `<span style="font-size: 0.75rem; font-weight: 700; color: var(--text-muted); background: var(--bg-surface-secondary, #f1f5f9); padding: 1px 6px; border-radius: 4px;">${ord.day}</span>` : ''}
+            </div>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+              <span class="badge ${statusClass}" style="font-size: 0.65rem; font-weight: 800;">
+                ${ord.paymentStatus || 'Unpaid'}
+              </span>
+              <span class="badge ${ord.dispatched ? 'badge-paid' : 'badge-unpaid'}" style="font-size: 0.65rem;">
+                ${ord.dispatched ? '✓ Sent' : '⏳ Pending'}
+              </span>
+            </div>
           </div>
-          <div style="text-align: right;">
-            <div style="font-size: 0.9rem; font-weight: 800; color: var(--primary-dark);">${formatRM(ord.totalAmount)}</div>
-            <span class="badge ${statusClass}" style="font-size: 0.65rem;">
-              ${ord.paymentStatus || 'Unpaid'}
-            </span>
+
+          <!-- Middle Row: Food Title & Total Amount -->
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 0.45rem;">
+            <div style="font-size: 0.86rem; font-weight: 700; color: var(--text-main);">
+              🥗 ${ord.foodName} <span style="color: var(--primary-dark); font-weight: 800;">× ${ord.quantity || 1}</span>
+            </div>
+            <div style="font-size: 1rem; font-weight: 800; color: var(--primary-dark);">
+              ${formatRM(ord.totalAmount)}
+            </div>
           </div>
+
+          <!-- Portion Summary Badge & Items List -->
+          <div style="margin-top: 0.3rem;">
+            <div style="display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.75rem; font-weight: 700; color: var(--primary-dark); background: var(--primary-light, #ecfdf5); border: 1px solid var(--border-color); padding: 2px 7px; border-radius: 5px;">
+              🍱 ${portionSummaryText}
+            </div>
+            ${itemsDetailHtml}
+          </div>
+
+          <!-- Bottom Row: Order Created Timestamp & Remark -->
+          ${(createdTimeStr || ord.remark) ? `
+            <div style="margin-top: 0.45rem; padding-top: 0.35rem; border-top: 1px solid var(--border-light, #f1f5f9); display: flex; align-items: center; justify-content: space-between; font-size: 0.72rem; color: var(--text-muted); flex-wrap: wrap; gap: 0.25rem;">
+              ${createdTimeStr ? `<span>🕒 Ordered: ${createdTimeStr}</span>` : '<span></span>'}
+              ${ord.remark ? `<span style="color: #b45309; font-weight: 600; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${ord.remark}">💬 ${ord.remark}</span>` : ''}
+            </div>
+          ` : ''}
         </div>
       `;
       historyContainer.insertAdjacentHTML('beforeend', itemHtml);
@@ -841,4 +981,357 @@ function openCustomerProfileModal(contactId) {
 function closeCustomerProfileModal() {
   document.getElementById('customer-profile-modal').classList.remove('active');
   viewingProfileContactId = null;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   CUSTOMER FULL ORDER HISTORY & FINANCIAL LEDGER MODAL (BIG WINDOW)
+───────────────────────────────────────────────────────────── */
+let fullHistoryCurrentContactId = null;
+let fullHistoryStatusFilter = 'all'; // 'all', 'unpaid', 'paid', 'package'
+let fullHistorySearchQuery = '';
+
+function openCustomerFullHistoryModal(contactId = null) {
+  const targetId = contactId || viewingProfileContactId;
+  if (!targetId) return;
+
+  fullHistoryCurrentContactId = targetId;
+  fullHistoryStatusFilter = 'all';
+  fullHistorySearchQuery = '';
+
+  const searchInput = document.getElementById('full-history-search-input');
+  if (searchInput) searchInput.value = '';
+
+  const filterBtns = {
+    all: document.getElementById('full-hist-filter-all'),
+    unpaid: document.getElementById('full-hist-filter-unpaid'),
+    paid: document.getElementById('full-hist-filter-paid'),
+    package: document.getElementById('full-hist-filter-package')
+  };
+  Object.entries(filterBtns).forEach(([key, btn]) => {
+    if (btn) btn.classList.toggle('active', key === 'all');
+  });
+
+  // Update Customer Header
+  const c = cachedContacts[targetId] || {};
+  const isRider = c.isRider === true || c.role === 'rider';
+  
+  const nameEl = document.getElementById('full-history-customer-name');
+  if (nameEl) nameEl.textContent = (isRider ? `🛵 ${c.name}` : c.name) + ' — Order History & Statement';
+
+  const phoneEl = document.getElementById('full-history-customer-phone');
+  if (phoneEl) phoneEl.textContent = c.phone ? `📞 ${c.phone}` : 'No phone';
+
+  const addrEl = document.getElementById('full-history-customer-address');
+  if (addrEl) {
+    const addr1 = c.address ? `📍 ${c.address}` : '📍 No address';
+    const addr2 = c.address2 ? ` • 📍2: ${c.address2}` : '';
+    addrEl.textContent = `${addr1}${addr2}`;
+  }
+
+  renderCustomerFullHistory();
+  document.getElementById('customer-full-history-modal').classList.add('active');
+}
+
+function closeCustomerFullHistoryModal() {
+  const modal = document.getElementById('customer-full-history-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+function setFullHistoryStatusFilter(filterStatus) {
+  fullHistoryStatusFilter = filterStatus;
+  
+  const filterBtns = {
+    all: document.getElementById('full-hist-filter-all'),
+    unpaid: document.getElementById('full-hist-filter-unpaid'),
+    paid: document.getElementById('full-hist-filter-paid'),
+    package: document.getElementById('full-hist-filter-package')
+  };
+
+  Object.entries(filterBtns).forEach(([key, btn]) => {
+    if (btn) btn.classList.toggle('active', key === filterStatus);
+  });
+
+  renderCustomerFullHistory();
+}
+
+function handleFullHistorySearch(query) {
+  fullHistorySearchQuery = (query || '').toLowerCase().trim();
+  renderCustomerFullHistory();
+}
+
+async function toggleFullHistoryPaymentStatus(orderId, currentStatus) {
+  if (typeof togglePaymentStatusAction === 'function') {
+    await togglePaymentStatusAction(orderId, currentStatus);
+    renderCustomerFullHistory();
+    // Also refresh profile modal if open
+    if (viewingProfileContactId && typeof openCustomerProfileModal === 'function') {
+      openCustomerProfileModal(viewingProfileContactId);
+    }
+  }
+}
+
+function renderCustomerFullHistory() {
+  if (!fullHistoryCurrentContactId) return;
+
+  const targetId = fullHistoryCurrentContactId;
+  const c = cachedContacts[targetId] || {};
+  const allOrders = Object.values(cachedOrders || {});
+  
+  // All orders of this customer
+  const customerOrders = allOrders.filter(ord => ord.contactId === targetId);
+  customerOrders.sort((a, b) => (b.date || '').localeCompare(a.date || '') || (b.createdAt || 0) - (a.createdAt || 0));
+
+  // Compute metrics across ALL orders of this customer
+  let totalSpent = 0;
+  let totalMeals = 0;
+  let unpaidTotal = 0;
+  let unpaidCount = 0;
+  let paidTotal = 0;
+  let paidCount = 0;
+  let packageOrdersCount = 0;
+  let packageMealsCount = 0;
+  let totalStdCount = 0;
+  let totalSmlCount = 0;
+
+  customerOrders.forEach(ord => {
+    const amt = parseFloat(ord.totalAmount) || 0;
+    const qty = parseInt(ord.quantity) || 1;
+    totalSpent += amt;
+    totalMeals += qty;
+
+    // Portion counts
+    if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+      ord.items.forEach(it => {
+        if ((it.portion || '').toLowerCase() === 'small') totalSmlCount++;
+        else totalStdCount++;
+      });
+    } else {
+      if ((ord.portion || '').toLowerCase() === 'small') totalSmlCount += qty;
+      else totalStdCount += qty;
+    }
+
+    if (ord.paymentStatus === 'Paid') {
+      paidTotal += amt;
+      paidCount++;
+    } else if (ord.paymentStatus === 'Package') {
+      packageOrdersCount++;
+      packageMealsCount += qty;
+    } else {
+      unpaidTotal += amt;
+      unpaidCount++;
+    }
+  });
+
+  // Update Tab counts
+  const cntAllEl = document.getElementById('full-hist-cnt-all');
+  if (cntAllEl) cntAllEl.textContent = customerOrders.length;
+  const cntUnpaidEl = document.getElementById('full-hist-cnt-unpaid');
+  if (cntUnpaidEl) cntUnpaidEl.textContent = unpaidCount;
+  const cntPaidEl = document.getElementById('full-hist-cnt-paid');
+  if (cntPaidEl) cntPaidEl.textContent = paidCount;
+  const cntPkgEl = document.getElementById('full-hist-cnt-package');
+  if (cntPkgEl) cntPkgEl.textContent = packageOrdersCount;
+
+  // Render Top KPI Grid
+  const kpiGrid = document.getElementById('full-history-kpi-grid');
+  if (kpiGrid) {
+    const stdCredit = c.creditStandard || 0;
+    const smlCredit = c.creditSmall || 0;
+    const rdrCredit = parseFloat(c.creditRider) || 0;
+
+    const unpaidCardHtml = (unpaidTotal > 0 || unpaidCount > 0)
+      ? `
+        <div style="background: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 8px; padding: 0.6rem 0.85rem; text-align: left;">
+          <div style="font-size: 0.7rem; font-weight: 800; color: #be123c; text-transform: uppercase; letter-spacing: 0.03em;">🚨 UNPAID / 待收欠款</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: #e11d48; margin-top: 1px;">${formatRM(unpaidTotal)}</div>
+          <div style="font-size: 0.725rem; color: #9f1239; font-weight: 600; margin-top: 2px;">${unpaidCount} unpaid order${unpaidCount > 1 ? 's' : ''}</div>
+        </div>
+      `
+      : `
+        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 0.6rem 0.85rem; text-align: left;">
+          <div style="font-size: 0.7rem; font-weight: 800; color: #047857; text-transform: uppercase;">✓ OUTSTANDING DUES</div>
+          <div style="font-size: 1.25rem; font-weight: 800; color: #059669; margin-top: 1px;">RM 0.00</div>
+          <div style="font-size: 0.725rem; color: #065f46; font-weight: 600; margin-top: 2px;">All clear • No unpaid dues</div>
+        </div>
+      `;
+
+    kpiGrid.innerHTML = `
+      ${unpaidCardHtml}
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.85rem; text-align: left;">
+        <div style="font-size: 0.7rem; font-weight: 800; color: #166534; text-transform: uppercase;">💰 TOTAL PAID / 已收款</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary-dark); margin-top: 1px;">${formatRM(paidTotal)}</div>
+        <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">${paidCount} paid order${paidCount > 1 ? 's' : ''}</div>
+      </div>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.85rem; text-align: left;">
+        <div style="font-size: 0.7rem; font-weight: 800; color: #1d4ed8; text-transform: uppercase;">📊 TOTAL ORDERS / 历史订餐</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: var(--text-main); margin-top: 1px;">${customerOrders.length} <span style="font-size: 0.85rem; color: var(--text-muted); font-weight: normal;">(${totalMeals} meals)</span></div>
+        <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">${totalStdCount} Std, ${totalSmlCount} Small</div>
+      </div>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.85rem; text-align: left;">
+        <div style="font-size: 0.7rem; font-weight: 800; color: #4338ca; text-transform: uppercase;">💳 PACKAGE REDEEMED</div>
+        <div style="font-size: 1.25rem; font-weight: 800; color: #4f46e5; margin-top: 1px;">${packageOrdersCount} Orders</div>
+        <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">${packageMealsCount} meals paid via credit</div>
+      </div>
+      <div style="background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.6rem 0.85rem; text-align: left;">
+        <div style="font-size: 0.7rem; font-weight: 800; color: #b45309; text-transform: uppercase;">🍱 CREDIT BALANCE / 剩余套餐</div>
+        <div style="font-size: 1.05rem; font-weight: 800; color: #d97706; margin-top: 2px;">
+          ${stdCredit} Std / ${smlCredit} Sml
+        </div>
+        <div style="font-size: 0.725rem; color: var(--text-muted); font-weight: 600; margin-top: 2px;">
+          Rider: RM ${rdrCredit.toFixed(2)}
+        </div>
+      </div>
+    `;
+  }
+
+  // Filter orders according to status and query
+  let filteredOrders = customerOrders.filter(ord => {
+    if (fullHistoryStatusFilter === 'unpaid' && (ord.paymentStatus === 'Paid' || ord.paymentStatus === 'Package')) return false;
+    if (fullHistoryStatusFilter === 'paid' && ord.paymentStatus !== 'Paid') return false;
+    if (fullHistoryStatusFilter === 'package' && ord.paymentStatus !== 'Package') return false;
+
+    if (fullHistorySearchQuery) {
+      const q = fullHistorySearchQuery;
+      const matchDate = (ord.date || '').toLowerCase().includes(q) || (ord.day || '').toLowerCase().includes(q);
+      const matchFood = (ord.foodName || '').toLowerCase().includes(q);
+      const matchRemark = (ord.remark || '').toLowerCase().includes(q);
+      const matchPortion = (ord.portion || '').toLowerCase().includes(q);
+      return matchDate || matchFood || matchRemark || matchPortion;
+    }
+    return true;
+  });
+
+  // Populate Table Rows
+  const tbody = document.getElementById('full-history-table-body');
+  if (!tbody) return;
+
+  if (filteredOrders.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" style="text-align: center; padding: 3rem 1rem; color: var(--text-muted);">
+          <div style="font-size: 1.5rem; margin-bottom: 0.5rem;">🔍</div>
+          <div style="font-weight: 700; font-size: 0.95rem;">No orders match the selected filter</div>
+          <div style="font-size: 0.775rem; margin-top: 0.25rem;">Try changing the status filter or clearing your search term</div>
+        </td>
+      </tr>
+    `;
+  } else {
+    let rowsHtml = '';
+    filteredOrders.forEach((ord, index) => {
+      const isUnpaid = (ord.paymentStatus !== 'Paid' && ord.paymentStatus !== 'Package');
+      const rowBg = isUnpaid 
+        ? 'background: rgba(239, 68, 68, 0.04);' 
+        : (index % 2 === 1 ? 'background: rgba(0,0,0,0.015);' : '');
+
+      let portionSummaryText = '';
+      let itemsDetailHtml = '';
+      if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+        const stdCount = ord.items.filter(i => (i.portion || '').toLowerCase() !== 'small').length;
+        const smlCount = ord.items.filter(i => (i.portion || '').toLowerCase() === 'small').length;
+        const parts = [];
+        if (stdCount > 0) parts.push(`${stdCount} Std`);
+        if (smlCount > 0) parts.push(`${smlCount} Sml`);
+        portionSummaryText = parts.join(', ');
+
+        const itemsStr = ord.items.map(it => {
+          const addonsList = Array.isArray(it.addons) ? it.addons : Array.from(it.addons || []);
+          const addonText = addonsList.length > 0 
+            ? ` (+${addonsList.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})`
+            : '';
+          return `#${it.id || ''} ${it.portion || 'Standard'}${addonText}`.trim();
+        }).join(' • ');
+
+        itemsDetailHtml = `<div style="font-size: 0.71rem; color: var(--text-muted); font-weight: 500; margin-top: 2px;">${itemsStr}</div>`;
+      } else {
+        const pName = (ord.portion === 'Small') ? 'Small' : ((ord.portion === 'Mixed') ? 'Mixed' : 'Standard');
+        portionSummaryText = `${pName} × ${ord.quantity || 1}`;
+      }
+
+      let createdTimeStr = '--';
+      if (ord.createdAt) {
+        const cdt = new Date(ord.createdAt);
+        createdTimeStr = `${cdt.getFullYear()}-${String(cdt.getMonth() + 1).padStart(2, '0')}-${String(cdt.getDate()).padStart(2, '0')} ${String(cdt.getHours()).padStart(2, '0')}:${String(cdt.getMinutes()).padStart(2, '0')}`;
+      }
+
+      // Breakdown of food vs rider
+      const foodAmt = (ord.foodAmount !== undefined && ord.foodAmount !== null) ? parseFloat(ord.foodAmount) : parseFloat(ord.totalAmount);
+      const riderFee = parseFloat(ord.riderFee) || 0;
+      const riderFeeStr = riderFee > 0 ? `+RM ${riderFee.toFixed(2)}` : '';
+
+      // Payment button
+      let payBadgeStyle = 'border-radius: 9999px; padding: 3px 8px; font-size: 0.72rem; font-weight: 800; cursor: pointer; border: 1px solid transparent; transition: all 0.15s;';
+      let payBadgeHtml = '';
+      if (ord.paymentStatus === 'Paid') {
+        payBadgeHtml = `<button type="button" class="badge badge-paid" style="${payBadgeStyle}" onclick="toggleFullHistoryPaymentStatus('${ord.orderId}', 'Paid')" title="Click to change payment status">🟢 Paid</button>`;
+      } else if (ord.paymentStatus === 'Package') {
+        payBadgeHtml = `<button type="button" class="badge badge-package" style="${payBadgeStyle}" onclick="toggleFullHistoryPaymentStatus('${ord.orderId}', 'Package')" title="Click to change payment status">💳 Package</button>`;
+      } else {
+        payBadgeHtml = `<button type="button" class="badge badge-unpaid" style="${payBadgeStyle} background: #fee2e2; color: #b91c1c; border-color: #fca5a5;" onclick="toggleFullHistoryPaymentStatus('${ord.orderId}', 'Unpaid')" title="Click to mark as Paid (已收款)">🔴 Unpaid (欠款)</button>`;
+      }
+
+      const dispatchBadgeHtml = ord.dispatched
+        ? `<span class="badge badge-paid" style="font-size: 0.68rem; font-weight: 700;">✓ Sent</span>`
+        : `<span class="badge badge-unpaid" style="font-size: 0.68rem; font-weight: 700;">⏳ Wait</span>`;
+
+      rowsHtml += `
+        <tr style="${rowBg} border-bottom: 1px solid var(--border-light);">
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top;">
+            <div style="font-weight: 800; color: var(--text-main); font-size: 0.85rem;">${ord.date || '--'}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600;">${ord.day || ''}</div>
+          </td>
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top; color: var(--text-muted); font-size: 0.75rem;">
+            ${createdTimeStr}
+          </td>
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top;">
+            <div style="display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap;">
+              <span style="font-weight: 800; color: var(--text-main);">${ord.foodName}</span>
+              <span style="font-size: 0.72rem; font-weight: 800; color: var(--primary-dark); background: var(--primary-light, #ecfdf5); padding: 1px 6px; border-radius: 4px;">${portionSummaryText}</span>
+              <span style="font-size: 0.78rem; font-weight: 800; color: var(--primary-dark);">× ${ord.quantity || 1}</span>
+            </div>
+            ${itemsDetailHtml}
+          </td>
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top; font-size: 0.75rem; color: var(--text-muted);">
+            <div>${ord.riderName ? `🛵 ${ord.riderName}` : 'No Rider'}</div>
+            ${riderFeeStr ? `<div style="color: #0284c7; font-weight: 700;">${riderFeeStr}</div>` : ''}
+          </td>
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top; text-align: right;">
+            <div style="font-size: 0.95rem; font-weight: 800; color: ${isUnpaid ? '#dc2626' : 'var(--primary-dark)'};">
+              ${formatRM(ord.totalAmount)}
+            </div>
+            ${riderFee > 0 ? `<div style="font-size: 0.68rem; color: var(--text-muted);">Food: ${formatRM(foodAmt)}</div>` : ''}
+          </td>
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top; text-align: center;">
+            ${payBadgeHtml}
+          </td>
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top; text-align: center;">
+            ${dispatchBadgeHtml}
+          </td>
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top; font-size: 0.75rem; color: #475569; max-width: 160px;">
+            ${ord.remark || '<span style="color:var(--text-muted);">-</span>'}
+          </td>
+          <td style="padding: 0.65rem 0.85rem; vertical-align: top; text-align: center;">
+            <div style="display: flex; justify-content: center; gap: 0.25rem;">
+              <button type="button" class="btn btn-outline btn-xs" onclick="openEditOrderModal('${ord.orderId}')" style="padding: 0.2rem 0.45rem;" title="Edit Order">
+                ✏️
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    });
+    tbody.innerHTML = rowsHtml;
+  }
+
+  // Update Footer Summary
+  const footerSummaryEl = document.getElementById('full-history-footer-summary');
+  if (footerSummaryEl) {
+    const curFilteredSpent = filteredOrders.reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0);
+    const curFilteredUnpaid = filteredOrders.filter(o => o.paymentStatus !== 'Paid' && o.paymentStatus !== 'Package').reduce((sum, o) => sum + (parseFloat(o.totalAmount) || 0), 0);
+    
+    footerSummaryEl.innerHTML = `
+      Showing <strong>${filteredOrders.length}</strong> of ${customerOrders.length} orders
+      • Subtotal in view: <strong style="color: var(--primary-dark);">${formatRM(curFilteredSpent)}</strong>
+      ${curFilteredUnpaid > 0 ? ` • <span style="color: #dc2626; font-weight: 800;">Unpaid in view: ${formatRM(curFilteredUnpaid)}</span>` : ' • <span style="color: #059669; font-weight: 700;">No unpaid dues in view</span>'}
+    `;
+  }
 }

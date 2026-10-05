@@ -9,6 +9,9 @@ let cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVeg
 
 let dbListeners = [];
 let isDbInitialized = false;
+const monitoredMonthRefs = {};
+const loadedMonthsSet = new Set();
+let isMigrationRunning = false;
 
 /**
  * Register data change callback
@@ -52,10 +55,18 @@ async function initDatabase() {
       notifyDataChanged();
     });
 
-    db.ref('orders').on('value', (snapshot) => {
-      cachedOrders = snapshot.val() || {};
-      notifyDataChanged();
-    });
+    // Auto-migrate legacy flat orders to year-month partitions and attach partition listeners
+    await migrateLegacyOrdersIfNeeded();
+
+    // Attach rolling 3-month listeners (prev, current, next month)
+    const now = new Date();
+    const prevMonth = getOrderMonthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    const currMonth = getOrderMonthKey(now);
+    const nextMonth = getOrderMonthKey(new Date(now.getFullYear(), now.getMonth() + 1, 1));
+
+    listenToOrdersMonth(prevMonth);
+    listenToOrdersMonth(currMonth);
+    listenToOrdersMonth(nextMonth);
 
     db.ref('credit_logs').on('value', (snapshot) => {
       cachedCreditLogs = snapshot.val() || {};
@@ -379,6 +390,103 @@ async function dbDeleteContact(contactId) {
   }
 }
 
+// Partitioning Helpers & Monthly Listeners
+
+function getOrderMonthKey(ordOrDate) {
+  if (!ordOrDate) {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  }
+  if (typeof ordOrDate === 'string') {
+    if (ordOrDate.length >= 7) return ordOrDate.substring(0, 7);
+  }
+  if (ordOrDate instanceof Date && !isNaN(ordOrDate.getTime())) {
+    return `${ordOrDate.getFullYear()}-${String(ordOrDate.getMonth() + 1).padStart(2, '0')}`;
+  }
+  if (ordOrDate.date && typeof ordOrDate.date === 'string' && ordOrDate.date.length >= 7) {
+    return ordOrDate.date.substring(0, 7);
+  }
+  if (ordOrDate.createdAt) {
+    const d = new Date(ordOrDate.createdAt);
+    if (!isNaN(d.getTime())) {
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    }
+  }
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function migrateLegacyOrdersIfNeeded() {
+  if (!isFirebaseLive || !db || isMigrationRunning) return;
+  isMigrationRunning = true;
+  try {
+    const snapshot = await db.ref('orders').once('value');
+    const data = snapshot.val();
+    if (!data) return;
+
+    const updates = {};
+    let migratedCount = 0;
+
+    for (const [key, val] of Object.entries(data)) {
+      // Check if key is a legacy flat order (starts with 'ord_' or not in YYYY-MM format)
+      if (val && typeof val === 'object' && !/^\d{4}-\d{2}$/.test(key)) {
+        const targetMonth = getOrderMonthKey(val);
+        updates[`orders/${targetMonth}/${key}`] = val;
+        updates[`orders/${key}`] = null; // delete legacy flat order
+        migratedCount++;
+      }
+    }
+
+    if (migratedCount > 0) {
+      console.log(`[DB Migration] Auto-migrating ${migratedCount} legacy orders into YYYY-MM partitioned nodes...`);
+      await db.ref().update(updates);
+      console.log(`[DB Migration] Successfully migrated ${migratedCount} orders!`);
+      if (typeof showMaterialToast === 'function') {
+        showMaterialToast(`⚡ Database upgraded to Year-Month partitions (${migratedCount} orders organized)`, 'success');
+      }
+    }
+  } catch (err) {
+    console.error('[DB Migration] Auto-migration error:', err);
+  } finally {
+    isMigrationRunning = false;
+  }
+}
+
+function listenToOrdersMonth(monthKey) {
+  if (!monthKey || monitoredMonthRefs[monthKey]) return;
+  if (!isFirebaseLive || !db) return;
+
+  loadedMonthsSet.add(monthKey);
+  const mRef = db.ref(`orders/${monthKey}`);
+  monitoredMonthRefs[monthKey] = mRef;
+
+  mRef.on('value', (snapshot) => {
+    const monthData = snapshot.val() || {};
+
+    // Remove any orders in cachedOrders that were deleted remotely for this month
+    for (const [id, ord] of Object.entries(cachedOrders)) {
+      const m = getOrderMonthKey(ord);
+      if (m === monthKey && !monthData[id]) {
+        delete cachedOrders[id];
+      }
+    }
+
+    // Merge latest month orders
+    for (const [id, ord] of Object.entries(monthData)) {
+      cachedOrders[id] = ord;
+    }
+
+    notifyDataChanged();
+  });
+}
+
+function ensureOrdersMonthLoaded(yearMonth) {
+  if (!yearMonth) return;
+  if (!monitoredMonthRefs[yearMonth]) {
+    listenToOrdersMonth(yearMonth);
+  }
+}
+
 // Order DB Actions
 async function dbAddOrder(orderData) {
   const orderId = 'ord_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
@@ -387,12 +495,14 @@ async function dbAddOrder(orderData) {
     orderId,
     createdAt: Date.now()
   };
+  const monthKey = getOrderMonthKey(record);
 
   cachedOrders[orderId] = record;
+  ensureOrdersMonthLoaded(monthKey);
   notifyDataChanged();
 
   if (isFirebaseLive && db) {
-    await db.ref(`orders/${orderId}`).set(record);
+    await db.ref(`orders/${monthKey}/${orderId}`).set(record);
   } else {
     saveToLocalStorage();
   }
@@ -401,16 +511,30 @@ async function dbAddOrder(orderData) {
 
 async function dbUpdateOrder(orderId, updates) {
   if (!cachedOrders[orderId]) return null;
+  const oldRecord = cachedOrders[orderId];
+  const oldMonth = getOrderMonthKey(oldRecord);
+
   const record = {
-    ...cachedOrders[orderId],
+    ...oldRecord,
     ...updates,
     updatedAt: Date.now()
   };
+  const newMonth = getOrderMonthKey(record);
+
   cachedOrders[orderId] = record;
+  ensureOrdersMonthLoaded(newMonth);
   notifyDataChanged();
 
   if (isFirebaseLive && db) {
-    await db.ref(`orders/${orderId}`).update(record);
+    if (oldMonth !== newMonth) {
+      // Order moved between months, use multi-path update to move atomically
+      const moveUpdates = {};
+      moveUpdates[`orders/${oldMonth}/${orderId}`] = null;
+      moveUpdates[`orders/${newMonth}/${orderId}`] = record;
+      await db.ref().update(moveUpdates);
+    } else {
+      await db.ref(`orders/${newMonth}/${orderId}`).update(record);
+    }
   } else {
     saveToLocalStorage();
   }
@@ -427,7 +551,9 @@ async function dbUpdatePaymentStatus(orderId, paymentStatus) {
   }
 
   if (isFirebaseLive && db) {
-    await db.ref(`orders/${orderId}`).update(updates);
+    const ord = cachedOrders[orderId];
+    const monthKey = ord ? getOrderMonthKey(ord) : getOrderMonthKey(new Date());
+    await db.ref(`orders/${monthKey}/${orderId}`).update(updates);
   } else {
     saveToLocalStorage();
   }
@@ -448,7 +574,9 @@ async function dbToggleOrderDispatchStatus(orderId) {
   notifyDataChanged();
 
   if (isFirebaseLive && db) {
-    await db.ref(`orders/${orderId}`).update({ dispatched: nextVal });
+    const ord = cachedOrders[orderId];
+    const monthKey = ord ? getOrderMonthKey(ord) : getOrderMonthKey(new Date());
+    await db.ref(`orders/${monthKey}/${orderId}`).update({ dispatched: nextVal });
   } else {
     saveToLocalStorage();
   }
@@ -456,10 +584,17 @@ async function dbToggleOrderDispatchStatus(orderId) {
 }
 
 async function dbDeleteOrder(orderId) {
+  const ord = cachedOrders[orderId];
+  const monthKey = ord ? getOrderMonthKey(ord) : null;
+
   delete cachedOrders[orderId];
   notifyDataChanged();
 
   if (isFirebaseLive && db) {
+    if (monthKey) {
+      await db.ref(`orders/${monthKey}/${orderId}`).remove();
+    }
+    // Also remove from legacy flat path in case it was there
     await db.ref(`orders/${orderId}`).remove();
   } else {
     saveToLocalStorage();

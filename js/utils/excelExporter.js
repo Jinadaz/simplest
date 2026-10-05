@@ -39,6 +39,9 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
   const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
   const dd = String(targetDate.getDate()).padStart(2, '0');
   const dateStr = yyyy + '-' + mm + '-' + dd;
+  if (typeof ensureOrdersMonthLoaded === 'function') {
+    ensureOrdersMonthLoaded(yyyy + '-' + mm);
+  }
 
   const dayOfWeek = targetDate.getDay(); // 0 = Sun, 1 = Mon, ..., 5 = Fri, 6 = Sat
   const sheetKeyMap = { 1: 'MON', 2: 'TUE', 3: 'WED', 4: 'THU', 5: 'FRI' };
@@ -88,15 +91,30 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
       }
     }
 
-    // Count portions
-    const qty = parseInt(ord.quantity) || 1;
-    const portion = (ord.portion || 'Standard').toLowerCase();
-    if (portion === 'small') {
-      customerMap[groupKey].smallCount += qty;
+    // Count portions accurately by inspecting itemsData if available
+    let ordSmall = 0;
+    let ordStd = 0;
+    if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+      ord.items.forEach(it => {
+        if ((it.portion || '').toLowerCase() === 'small') {
+          ordSmall++;
+        } else {
+          ordStd++;
+        }
+      });
     } else {
-      customerMap[groupKey].standardCount += qty;
+      const qty = parseInt(ord.quantity) || 1;
+      const portion = (ord.portion || 'Standard').toLowerCase();
+      if (portion === 'small') {
+        ordSmall += qty;
+      } else {
+        ordStd += qty;
+      }
     }
-    customerMap[groupKey].totalMeals += qty;
+
+    customerMap[groupKey].smallCount += ordSmall;
+    customerMap[groupKey].standardCount += ordStd;
+    customerMap[groupKey].totalMeals += (ordSmall + ordStd);
   });
 
   // Convert map to list and format remarks

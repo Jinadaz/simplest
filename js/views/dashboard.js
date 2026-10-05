@@ -75,8 +75,28 @@ function renderDashboard() {
   const totalOrdersCount = dayOrders.length;
   const totalMealsCount = dayOrders.reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
   const totalRevenueAmount = dayOrders.reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
-  const stdMealsCount = dayOrders.filter(ord => ord.portion !== 'Small').reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
-  const smlMealsCount = dayOrders.filter(ord => ord.portion === 'Small').reduce((sum, ord) => sum + (parseInt(ord.quantity) || 0), 0);
+  
+  let stdMealsCount = 0;
+  let smlMealsCount = 0;
+  dayOrders.forEach(ord => {
+    if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+      ord.items.forEach(it => {
+        if ((it.portion || '').toLowerCase() === 'small') {
+          smlMealsCount++;
+        } else {
+          stdMealsCount++;
+        }
+      });
+    } else {
+      const q = parseInt(ord.quantity) || 1;
+      if ((ord.portion || '').toLowerCase() === 'small') {
+        smlMealsCount += q;
+      } else {
+        stdMealsCount += q;
+      }
+    }
+  });
+
   const sentDeliveriesCount = dayOrders.filter(ord => ord.dispatched === true).length;
   const unpaidOrdersCount = dayOrders.filter(ord => ord.paymentStatus === 'Unpaid').length;
   const unpaidAmount = dayOrders.filter(ord => ord.paymentStatus === 'Unpaid').reduce((sum, ord) => sum + (parseFloat(ord.totalAmount) || 0), 0);
@@ -218,8 +238,35 @@ function renderDashboard() {
         ord.foodName,
         ord.quantity,
         ord.totalAmount,
-        portion
+        portion,
+        ord.items
       );
+
+      let portionSummaryBadge = '';
+      let itemsDetailsStr = '';
+      if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+        const stdCnt = ord.items.filter(i => (i.portion || '').toLowerCase() !== 'small').length;
+        const smlCnt = ord.items.filter(i => (i.portion || '').toLowerCase() === 'small').length;
+        if (stdCnt > 0 && smlCnt > 0) {
+          portionSummaryBadge = `<span class="portion-badge portion-standard" style="font-size: 0.65rem;">${stdCnt} Std</span> <span class="portion-badge portion-small" style="font-size: 0.65rem;">${smlCnt} Sml</span>`;
+        } else if (smlCnt > 0) {
+          portionSummaryBadge = `<span class="portion-badge portion-small" style="font-size: 0.65rem;">Small</span>`;
+        } else {
+          portionSummaryBadge = `<span class="portion-badge portion-standard" style="font-size: 0.65rem;">Std</span>`;
+        }
+
+        itemsDetailsStr = ord.items.map(it => {
+          const addonsList = Array.isArray(it.addons) ? it.addons : Array.from(it.addons || []);
+          const addonText = addonsList.length > 0 
+            ? ` (+${addonsList.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})`
+            : '';
+          return `#${it.id || ''} ${it.portion || 'Standard'}${addonText}`.trim();
+        }).join(' • ');
+      } else {
+        const pLabel = (portion === 'Small') ? 'Small' : ((portion === 'Mixed') ? 'Mixed' : 'Std');
+        const pClass = (portion === 'Small') ? 'portion-small' : 'portion-standard';
+        portionSummaryBadge = `<span class="portion-badge ${pClass}" style="font-size: 0.65rem;">${pLabel}</span>`;
+      }
 
       // Desktop Table Row
       tableRows += `
@@ -231,9 +278,10 @@ function renderDashboard() {
           <td>
             <div style="font-size: 0.85rem; font-weight: 600;">
               ${ord.foodName}
-              <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}" style="font-size: 0.65rem;">${portion === 'Small' ? 'Small' : 'Std'}</span>
+              ${portionSummaryBadge}
               × ${ord.quantity}
             </div>
+            ${itemsDetailsStr ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500; margin-top: 1px;">${itemsDetailsStr}</div>` : ''}
           </td>
           <td>
             <div style="font-weight: 800; color: var(--primary-dark); font-size: 0.88rem;">${formatRM(ord.totalAmount)}</div>
@@ -277,9 +325,10 @@ function renderDashboard() {
           ${address ? `<div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.4rem;">📍 ${address}</div>` : ''}
           <div style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">
             🥗 ${ord.foodName}
-            <span class="portion-badge ${portion === 'Small' ? 'portion-small' : 'portion-standard'}" style="font-size: 0.65rem;">${portion === 'Small' ? 'Small' : 'Std'}</span>
+            ${portionSummaryBadge}
             × ${ord.quantity}
             ${riderName ? ` • 🛵 ${riderName}` : ''}
+            ${itemsDetailsStr ? `<div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 500; margin-top: 2px;">${itemsDetailsStr}</div>` : ''}
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.45rem; border-top: 1px dashed var(--border-color);">
             <div style="display: flex; gap: 0.35rem; align-items: center;">
