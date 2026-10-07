@@ -490,8 +490,8 @@ function renderPricingRidersList(pricing) {
         </div>
         <div style="display:flex; align-items:center; gap:0.35rem; flex-shrink:0;">
           <span style="font-weight:800; font-size:0.8rem; color:var(--text-muted);">RM</span>
-          <input type="number" step="0.50" min="0" class="form-control pricing-rider-fee-input" data-rider-id="${r.id}"
-            value="${feeStr}" placeholder="0.00"
+          <input type="number" step="0.01" min="0" class="form-control pricing-rider-fee-input" data-rider-id="${r.id}"
+            value="${feeStr}" placeholder="0.00" onfocus="this.select()"
             style="width:85px; text-align:right; font-weight:700; padding:0.35rem 0.5rem; font-size:0.9rem;" />
         </div>
       </div>

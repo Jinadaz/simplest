@@ -77,6 +77,7 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
         phone: phone,
         address: address,
         remarks: [],
+        itemLines: [],
         smallCount: 0,
         standardCount: 0,
         totalMeals: 0
@@ -89,6 +90,17 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
       if (!customerMap[groupKey].remarks.includes(r)) {
         customerMap[groupKey].remarks.push(r);
       }
+    }
+
+    // Collect item dish lines if available
+    if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+      ord.items.forEach(it => {
+        const portion = it.portion || 'Standard';
+        const addonsList = Array.isArray(it.addons) ? it.addons : Array.from(it.addons || []);
+        const addonText = addonsList.length > 0 ? ` (+${addonsList.join(', ')})` : '';
+        const idText = it.id ? `#${it.id} ` : '';
+        customerMap[groupKey].itemLines.push(`${idText}${portion}${addonText}`.trim());
+      });
     }
 
     // Count portions accurately by inspecting itemsData if available
@@ -122,6 +134,7 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
     name: c.name,
     phone: c.phone,
     special: c.remarks.join('; '),
+    itemLines: c.itemLines,
     smallCount: c.smallCount,
     standardCount: c.standardCount,
     totalMeals: c.totalMeals,
@@ -335,12 +348,13 @@ function renderExportExcelModalContent() {
           '<th style="padding: 6px 8px; font-weight: 700; text-align: center;">400</th>' +
           '<th style="padding: 6px 8px; font-weight: 700; text-align: center;">ST</th>' +
           '<th style="padding: 6px 8px; font-weight: 700;">ADD</th>' +
+          '<th style="padding: 6px 8px; font-weight: 700; text-align: center;">PRINT</th>' +
         '</tr>' +
       '</thead>' +
       '<tbody>';
 
   if (dayData.customers.length === 0) {
-    html += '<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No orders scheduled for this day</td></tr>';
+    html += '<tr><td colspan="7" style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No orders scheduled for this day</td></tr>';
   } else {
     dayData.customers.forEach((c, idx) => {
       const bg = idx % 2 === 1 ? 'background: rgba(0,0,0,0.02);' : '';
@@ -351,6 +365,9 @@ function renderExportExcelModalContent() {
         '<td style="padding: 5px 8px; text-align: center; font-weight: 700; color: #047857;">' + (c.smallCount > 0 ? c.smallCount : '') + '</td>' +
         '<td style="padding: 5px 8px; text-align: center; font-weight: 700; color: #1d4ed8;">' + (c.standardCount > 0 ? c.standardCount : '') + '</td>' +
         '<td style="padding: 5px 8px; color: var(--text-muted); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + (c.address || '') + '">' + (c.address || '-') + '</td>' +
+        '<td style="padding: 3px 6px; text-align: center; white-space: nowrap;">' +
+          '<button type="button" class="btn btn-outline btn-sm" onclick="printSingleCustomerThermalReceipt(' + idx + ')" style="padding: 2px 7px; font-size: 0.68rem; border-color: #2563eb; color: #1d4ed8; background: #eff6ff; font-weight: 600; border-radius: 4px; cursor: pointer;" title="Print 80mm thermal receipt with auto-cut">🖨️ Receipt</button>' +
+        '</td>' +
       '</tr>';
     });
   }

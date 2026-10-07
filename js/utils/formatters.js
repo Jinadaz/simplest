@@ -21,6 +21,18 @@ function formatDateReadable(dateStr) {
 }
 
 /**
+ * Get weekday name (e.g. Monday, Tuesday) from ISO date string
+ */
+function getDayNameFromDateStr(dateStr) {
+  if (!dateStr) return 'Monday';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return 'Monday';
+  const d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  return days[d.getDay()] || 'Monday';
+}
+
+/**
  * Get Monday to Friday dates for a given offset from current week
  */
 function getWeekDays(weekOffset = 0) {

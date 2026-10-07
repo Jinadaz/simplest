@@ -1,4 +1,4 @@
-const CACHE_NAME = 'simplest-v3-cache';
+const CACHE_NAME = 'simplest-v4-cache';
 const ASSETS_TO_CACHE = [
   './',
   './index.html',
@@ -13,6 +13,7 @@ const ASSETS_TO_CACHE = [
   './js/exceljs.min.js',
   './js/1.xlsx',
   './js/utils/excelExporter.js',
+  './js/utils/receiptPrinter.js',
   './js/utils/formatters.js',
   './js/utils/imageCompressor.js',
   './js/utils/whatsapp.js',

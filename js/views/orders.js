@@ -346,6 +346,9 @@ function renderOrders() {
           </td>
           <td>
             <div style="display: flex; gap: 0.35rem; align-items: center;">
+              <button class="btn btn-outline btn-sm" style="color: #2563eb; padding: 0.25rem 0.45rem;" onclick="printOrderReceiptById('${ord.orderId}')" title="Print 80mm Receipt (CP-Q3 Auto-Cut)">
+                🖨️
+              </button>
               <button class="btn btn-outline btn-sm" style="color: var(--primary-dark); padding: 0.25rem 0.45rem;" onclick="openEditOrderModal('${ord.orderId}')" title="Edit Order">
                 ${getSvgIcon('edit', 'sm')}
               </button>
@@ -398,6 +401,9 @@ function renderOrders() {
               </span>
             </div>
             <div style="display: flex; gap: 0.35rem;">
+              <button class="btn btn-outline btn-sm" style="color: #2563eb; padding: 0.25rem 0.45rem;" onclick="printOrderReceiptById('${ord.orderId}')" title="Print 80mm Receipt (CP-Q3 Auto-Cut)">
+                🖨️
+              </button>
               <button class="btn btn-outline btn-sm" style="color: var(--primary-dark); padding: 0.25rem 0.45rem;" onclick="openEditOrderModal('${ord.orderId}')" title="Edit Order">
                 ${getSvgIcon('edit', 'sm')}
               </button>
@@ -1270,8 +1276,50 @@ function getWeekOffsetForDate(dateStr) {
   return Math.floor(diffDays / 7);
 }
 
+let orderModalWeekOffset = 0;
+
+function switchOrderModalWeek(offset) {
+  orderModalWeekOffset = offset;
+  renderOrderModalWeekSelector();
+  renderOrderDateCards(null, orderModalWeekOffset);
+}
+
+function renderOrderModalWeekSelector() {
+  const btnCurrent = document.getElementById('order-week-btn-current');
+  const btnNext = document.getElementById('order-week-btn-next');
+  const rangeLabel = document.getElementById('order-modal-week-range-label');
+
+  if (btnCurrent) {
+    if (orderModalWeekOffset === 0) {
+      btnCurrent.className = 'btn btn-xs btn-primary';
+    } else {
+      btnCurrent.className = 'btn btn-xs btn-outline';
+    }
+  }
+
+  if (btnNext) {
+    if (orderModalWeekOffset === 1) {
+      btnNext.className = 'btn btn-xs btn-primary';
+    } else {
+      btnNext.className = 'btn btn-xs btn-outline';
+    }
+  }
+
+  if (rangeLabel) {
+    const days = getWeekDays(orderModalWeekOffset);
+    let rangeText = '';
+    if (days && days.length >= 5) {
+      rangeText = `${days[0].formatted} - ${days[4].formatted}`;
+    }
+    const weekName = orderModalWeekOffset === 0 ? 'This Week' : (orderModalWeekOffset === 1 ? 'Next Week' : `Week +${orderModalWeekOffset}`);
+    const selCount = selectedOrderDates ? selectedOrderDates.size : 0;
+    const selText = selCount > 0 ? ` • ${selCount} selected` : '';
+    rangeLabel.textContent = `${weekName} (${rangeText})${selText}`;
+  }
+}
+
 // Render 5 Mon-Fri Meal Date Cards inside Add / Edit Order modal (Multi-Select Supported)
-function renderOrderDateCards(defaultDateStr = null, weekOffset = 0) {
+function renderOrderDateCards(defaultDateStr = null, weekOffset = orderModalWeekOffset) {
   const grid = document.getElementById('order-date-cards-grid');
   if (!grid) return;
 
@@ -1335,6 +1383,7 @@ function renderOrderDateCards(defaultDateStr = null, weekOffset = 0) {
     grid.appendChild(card);
   });
 
+  renderOrderModalWeekSelector();
   updateOrderFormCalculations();
 }
 
@@ -1367,6 +1416,7 @@ function toggleOrderDateCard(dateStr, dayName, menuObj) {
     card.classList.toggle('active', selectedOrderDates.has(dStr));
   });
 
+  renderOrderModalWeekSelector();
   updateOrderFormCalculations();
 }
 
@@ -1430,7 +1480,8 @@ function openAddOrderModal(preselectedContactId = null) {
 
   // Clear date selection so no date is selected by default
   selectedOrderDates.clear();
-
+  orderModalWeekOffset = 0;
+  renderOrderModalWeekSelector();
   renderOrderDateCards();
   document.getElementById('add-order-modal').classList.add('active');
 }
@@ -1474,8 +1525,9 @@ function openEditOrderModal(orderId) {
   // 2. Date
   selectedOrderDates.clear();
   selectedOrderDates.add(ord.date);
-  const weekOffset = getWeekOffsetForDate(ord.date);
-  renderOrderDateCards(ord.date, weekOffset);
+  orderModalWeekOffset = getWeekOffsetForDate(ord.date);
+  renderOrderModalWeekSelector();
+  renderOrderDateCards(ord.date, orderModalWeekOffset);
 
   // 3. Meal items & Add-ons
   if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
@@ -1691,10 +1743,9 @@ function updateOrderFormCalculations() {
       titleEl.textContent = 'Please select meal date(s)';
     } else if (datesArr.length === 1) {
       const menuObj = dbGetMenuByDate(datesArr[0]);
-      const weekDays = getWeekDays(0);
-      const matched = weekDays.find(w => w.dateStr === datesArr[0]);
+      const dayName = getDayNameFromDateStr(datesArr[0]);
       const foodTitle = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
-      titleEl.textContent = `${matched ? matched.day : ''}: ${foodTitle} [${quantity}×: ${portionsSummary}]`;
+      titleEl.textContent = `${dayName}: ${foodTitle} [${quantity}×: ${portionsSummary}]`;
     } else {
       titleEl.textContent = `${datesArr.length} Days [${quantity} meals/day: ${portionsSummary}] (${totalMealsCount} Meals Total)`;
     }
@@ -1774,16 +1825,15 @@ async function saveOrderSubmit(event) {
 
   const selectedDates = Array.from(selectedOrderDates);
   if (selectedDates.length === 0) {
-    const weekDays = getWeekDays(0);
-    if (weekDays && weekDays.length > 0) {
-      selectedDates.push(weekDays[0].dateStr);
+    const fallbackDays = getWeekDays(orderModalWeekOffset || 0);
+    if (fallbackDays && fallbackDays.length > 0) {
+      selectedDates.push(fallbackDays[0].dateStr);
     } else {
       showMaterialToast('Please select at least one meal date card', 'warning');
       return;
     }
   }
 
-  const weekDays = getWeekDays(0);
   const totalMealsToOrder = selectedDates.length * quantity;
 
   // Check customer's Meal Credit for each portion
@@ -1921,8 +1971,7 @@ async function saveOrderSubmit(event) {
     const existingOrd = cachedOrders[editingOrderId];
     const dateStr = selectedDates[0] || existingOrd.date;
     const menuObj = dbGetMenuByDate(dateStr);
-    const matchedDay = weekDays.find(d => d.dateStr === dateStr);
-    const dayName = matchedDay ? matchedDay.day : (existingOrd.day || 'Monday');
+    const dayName = getDayNameFromDateStr(dateStr) || existingOrd.day || 'Monday';
     const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : (existingOrd.foodName || 'Daily Healthy Meal');
 
     const itemsData = orderMealItems.map((mealItem, idx) => {
@@ -2014,8 +2063,7 @@ async function saveOrderSubmit(event) {
 
   for (const dateStr of selectedDates) {
     const menuObj = dbGetMenuByDate(dateStr);
-    const matchedDay = weekDays.find(d => d.dateStr === dateStr);
-    const dayName = matchedDay ? matchedDay.day : 'Monday';
+    const dayName = getDayNameFromDateStr(dateStr) || 'Monday';
     const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
 
     // Construct itemized details for each meal
