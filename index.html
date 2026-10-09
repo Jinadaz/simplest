@@ -291,8 +291,8 @@
                 <button type="button" class="btn btn-outline btn-sm"
                   onclick="printDailyThermalReceipts(typeof ordersDayOffset !== 'undefined' ? ordersDayOffset : 0)"
                   title="Print 80mm thermal receipts for all customers with auto-cut (POS-MAC CP-Q3)"
-                  style="display:none; align-items:center; gap:0.35rem; font-weight:700; background:rgba(37, 99, 235, 0.1); border-color:#2563eb; color:#1d4ed8; padding:0.35rem 0.75rem; border-radius:18px; cursor:pointer;">
-                  <span>🖨️ Print Receipts (80mm)</span>
+                  style="display:flex; align-items:center; gap:0.35rem; font-weight:700; background:rgba(37, 99, 235, 0.1); border-color:#2563eb; color:#1d4ed8; padding:0.35rem 0.75rem; border-radius:18px; cursor:pointer;">
+                  <span>🖨️ Print Receipts</span>
                 </button>
                 <span class="badge badge-paid" id="orders-total-weekly-count"
                   style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Orders</span>
@@ -888,7 +888,7 @@
                 <span style="font-weight: 800; color: var(--text-muted); font-size: 0.85rem;">RM</span>
                 <input type="number" step="0.01" min="0" id="order-input-rider-fee" class="form-control"
                   style="width: 85px; text-align: right; font-weight: 800; font-size: 0.95rem; padding: 0.35rem 0.55rem; color: var(--primary-dark);"
-                  value="0.00" placeholder="0.00" onfocus="this.select()" onblur="if(this.value !== '') { const v = parseFloat(this.value); if(!isNaN(v)) this.value = v.toFixed(2); } updateOrderFormCalculations();" oninput="updateOrderFormCalculations()" />
+                  value="0.00" placeholder="0.00" onfocus="this.select()" onblur="if(this.value !== '') { const v = parseFloat(this.value); if(!isNaN(v)) this.value = v.toFixed(2); } updateOrderFormCalculations();" oninput="handleOrderRiderFeeInput()" onchange="handleOrderRiderFeeInput()" />
               </div>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">

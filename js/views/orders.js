@@ -917,6 +917,13 @@ function selectOrderDeliveryAddress(num) {
   }
 }
 
+let isRiderFeeManuallyEdited = false;
+
+function handleOrderRiderFeeInput() {
+  isRiderFeeManuallyEdited = true;
+  updateOrderFormCalculations();
+}
+
 function refreshOrderRiderOptions(chosenRiderId = '') {
   const selectEl = document.getElementById('order-select-rider');
   if (!selectEl) return;
@@ -945,14 +952,19 @@ function refreshOrderRiderOptions(chosenRiderId = '') {
 
   const riderFeeInput = document.getElementById('order-input-rider-fee');
   if (riderFeeInput) {
-    if (chosenRiderId) {
-      let fee = defRiderFee;
-      if (riderFees[chosenRiderId] !== undefined && riderFees[chosenRiderId] !== null && !isNaN(riderFees[chosenRiderId])) {
-        fee = parseFloat(riderFees[chosenRiderId]);
+    if (!isRiderFeeManuallyEdited) {
+      if (chosenRiderId) {
+        let fee = defRiderFee;
+        if (riderFees[chosenRiderId] !== undefined && riderFees[chosenRiderId] !== null && !isNaN(riderFees[chosenRiderId])) {
+          fee = parseFloat(riderFees[chosenRiderId]);
+        }
+        riderFeeInput.value = fee.toFixed(2);
+      } else {
+        const curVal = parseFloat(riderFeeInput.value);
+        if (isNaN(curVal) || curVal === 0) {
+          riderFeeInput.value = '0.00';
+        }
       }
-      riderFeeInput.value = fee.toFixed(2);
-    } else {
-      riderFeeInput.value = '0.00';
     }
   }
 
@@ -977,6 +989,7 @@ function handleOrderRiderSelectChange(selectedRiderId) {
     } else {
       riderFeeInput.value = '0.00';
     }
+    isRiderFeeManuallyEdited = false;
   }
 
   updateOrderFormCalculations();
@@ -1463,6 +1476,7 @@ function openAddOrderModal(preselectedContactId = null) {
   document.getElementById('order-input-remark').value = '';
 
   // Reset Rider selection & fee
+  isRiderFeeManuallyEdited = false;
   refreshOrderRiderOptions('');
 
   // Reset Rider credit option box
@@ -1556,6 +1570,7 @@ function openEditOrderModal(orderId) {
   if (qtyInput) qtyInput.value = orderMealItems.length;
 
   // 4. Rider & Delivery Fee
+  isRiderFeeManuallyEdited = false;
   refreshOrderRiderOptions(ord.riderId || '');
   const rdrFeeInput = document.getElementById('order-input-rider-fee');
   if (rdrFeeInput) {
