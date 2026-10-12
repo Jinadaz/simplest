@@ -1,10 +1,20 @@
 /**
  * Simplest - Thermal Receipt Printer Utility (80mm POS-MAC CP-Q3)
- * Optimized for high-contrast thermal printing, solid black typography,
- * logo integration, and auto-cut pagination.
+ * Features:
+ * - Dedicated Large Window Modal with checkboxes, search, and rider filter
+ * - High-contrast thermal printing, pure black solid typography
+ * - Brand logo integration
+ * - Rider name displayed on every receipt
+ * - Clean portions layout (no item breakdown)
+ * - Auto-cut between receipts via CSS page breaks
  */
 
 let cachedReceiptLogoDataUrl = 'icons/logo.png';
+let receiptModalDayOffset = 0;
+let receiptModalSearchQuery = '';
+let receiptModalRiderFilter = 'All';
+let receiptModalSelectedKeys = new Set();
+let currentModalCustomersList = [];
 
 /**
  * Preload and compress logo to high-contrast monochrome base64 for instant printing
@@ -20,7 +30,6 @@ function initReceiptLogo() {
       canvas.width = size;
       canvas.height = size;
       const ctx = canvas.getContext('2d');
-      // Draw image
       ctx.drawImage(img, 0, 0, size, size);
       cachedReceiptLogoDataUrl = canvas.toDataURL('image/png');
     } catch(e) {
@@ -41,12 +50,384 @@ if (typeof window !== 'undefined') {
 }
 
 /**
- * Generate HTML markup for a single customer receipt ticket
+ * Open the dedicated large receipt printer modal
+ */
+function openReceiptPrinterModal(dayOffset) {
+  receiptModalDayOffset = (typeof dayOffset === 'number') 
+    ? dayOffset 
+    : (typeof ordersDayOffset !== 'undefined' ? ordersDayOffset : 0);
+
+  receiptModalSearchQuery = '';
+  receiptModalRiderFilter = 'All';
+
+  const modal = document.getElementById('receipt-printer-modal');
+  if (!modal) return;
+
+  const searchInput = document.getElementById('receipt-modal-search');
+  if (searchInput) searchInput.value = '';
+
+  // Pre-select all orders for this day by default
+  initReceiptSelectionForCurrentDay();
+
+  renderReceiptPrinterModal();
+  modal.classList.add('active');
+}
+
+/**
+ * Close the dedicated large receipt printer modal
+ */
+function closeReceiptPrinterModal() {
+  const modal = document.getElementById('receipt-printer-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+/**
+ * Change day in the modal
+ */
+function setReceiptDayOffset(change) {
+  if (change === 0) receiptModalDayOffset = 0;
+  else receiptModalDayOffset += change;
+
+  initReceiptSelectionForCurrentDay();
+  renderReceiptPrinterModal();
+}
+
+/**
+ * Initialize selection set with all customers of current day
+ */
+function initReceiptSelectionForCurrentDay() {
+  receiptModalSelectedKeys.clear();
+  if (typeof getDayOrdersDataForExcel === 'function') {
+    const dayData = getDayOrdersDataForExcel(receiptModalDayOffset);
+    if (dayData && dayData.customers) {
+      dayData.customers.forEach((c, idx) => {
+        const key = c.contactId || (c.name + '_' + c.phone + '_' + idx);
+        receiptModalSelectedKeys.add(key);
+      });
+    }
+  }
+}
+
+/**
+ * Search input handler
+ */
+function handleReceiptSearchInput(val) {
+  receiptModalSearchQuery = (val || '').trim().toLowerCase();
+  renderReceiptCustomerListOnly();
+}
+
+/**
+ * Rider filter dropdown handler
+ */
+function handleReceiptRiderFilterChange(val) {
+  receiptModalRiderFilter = val || 'All';
+  renderReceiptCustomerListOnly();
+}
+
+/**
+ * Toggle select all or deselect all
+ */
+function toggleAllReceiptsSelection(selectAll) {
+  const visibleCustomers = getFilteredReceiptCustomers();
+  visibleCustomers.forEach(c => {
+    const key = c._key;
+    if (selectAll) {
+      receiptModalSelectedKeys.add(key);
+    } else {
+      receiptModalSelectedKeys.delete(key);
+    }
+  });
+
+  renderReceiptCustomerListOnly();
+}
+
+/**
+ * Toggle individual customer checkbox
+ */
+function toggleCustomerReceiptKey(key, evt) {
+  if (evt) evt.stopPropagation();
+  if (receiptModalSelectedKeys.has(key)) {
+    receiptModalSelectedKeys.delete(key);
+  } else {
+    receiptModalSelectedKeys.add(key);
+  }
+  renderReceiptCustomerListOnly();
+}
+
+/**
+ * Get customers filtered by search and rider
+ */
+function getFilteredReceiptCustomers() {
+  if (!currentModalCustomersList) return [];
+  return currentModalCustomersList.filter(c => {
+    // Rider filter
+    if (receiptModalRiderFilter !== 'All') {
+      const cRider = (c.riderName || '').trim();
+      if (receiptModalRiderFilter === 'Unassigned') {
+        if (cRider) return false;
+      } else {
+        if (cRider.toLowerCase() !== receiptModalRiderFilter.toLowerCase()) return false;
+      }
+    }
+
+    // Search query
+    if (receiptModalSearchQuery) {
+      const q = receiptModalSearchQuery;
+      const matchName = (c.name || '').toLowerCase().includes(q);
+      const matchPhone = (c.phone || '').toLowerCase().includes(q);
+      const matchAddr = (c.address || '').toLowerCase().includes(q);
+      const matchRider = (c.riderName || '').toLowerCase().includes(q);
+      const matchSpecial = (c.special || '').toLowerCase().includes(q);
+      if (!matchName && !matchPhone && !matchAddr && !matchRider && !matchSpecial) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+}
+
+/**
+ * Full render of modal contents including date header and rider options
+ */
+function renderReceiptPrinterModal() {
+  if (typeof getDayOrdersDataForExcel !== 'function') return;
+
+  const dayData = getDayOrdersDataForExcel(receiptModalDayOffset);
+
+  // Update date header
+  const titleEl = document.getElementById('receipt-modal-date-title');
+  const subEl = document.getElementById('receipt-modal-date-sub');
+  if (titleEl) {
+    let dayDesc = 'Today';
+    if (receiptModalDayOffset === -1) dayDesc = 'Yesterday';
+    else if (receiptModalDayOffset === 1) dayDesc = 'Tomorrow';
+    else if (receiptModalDayOffset < -1) dayDesc = Math.abs(receiptModalDayOffset) + ' Days Ago';
+    else if (receiptModalDayOffset > 1) dayDesc = 'In ' + receiptModalDayOffset + ' Days';
+
+    titleEl.innerHTML = `<span style="color:#2563eb; margin-right:4px;">${dayDesc}:</span> ${dayData.dayName}, ${dayData.formattedDate}`;
+  }
+  if (subEl) {
+    subEl.textContent = `Total Orders: ${dayData.customers.length} | Meals: ${dayData.totalMeals} (Small: ${dayData.totalSmall}, Std: ${dayData.totalStd})`;
+  }
+
+  // Attach keys to customers
+  currentModalCustomersList = (dayData.customers || []).map((c, idx) => ({
+    ...c,
+    _key: c.contactId || (c.name + '_' + c.phone + '_' + idx),
+    _originalIndex: idx
+  }));
+
+  // Populate rider dropdown
+  const riderSelect = document.getElementById('receipt-rider-filter-select');
+  if (riderSelect) {
+    const ridersSet = new Set();
+    currentModalCustomersList.forEach(c => {
+      if (c.riderName && c.riderName.trim()) {
+        ridersSet.add(c.riderName.trim());
+      }
+    });
+
+    const currentVal = receiptModalRiderFilter;
+    let optionsHtml = '<option value="All">All Riders</option>';
+    Array.from(ridersSet).sort().forEach(r => {
+      optionsHtml += `<option value="${escapeReceiptXml(r)}">🛵 ${escapeReceiptXml(r)}</option>`;
+    });
+    optionsHtml += '<option value="Unassigned">⚠️ Unassigned</option>';
+    riderSelect.innerHTML = optionsHtml;
+
+    if (Array.from(riderSelect.options).some(o => o.value === currentVal)) {
+      riderSelect.value = currentVal;
+    } else {
+      riderSelect.value = 'All';
+      receiptModalRiderFilter = 'All';
+    }
+  }
+
+  renderReceiptCustomerListOnly();
+}
+
+/**
+ * Render customer list inside container and update summary footer
+ */
+function renderReceiptCustomerListOnly() {
+  const container = document.getElementById('receipt-modal-list-container');
+  if (!container) return;
+
+  const filteredCustomers = getFilteredReceiptCustomers();
+  const allCount = currentModalCustomersList.length;
+  const selectedCount = Array.from(receiptModalSelectedKeys).length;
+
+  let html = `
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;">
+      <thead style="background: var(--bg-surface); position: sticky; top: 0; z-index: 2; border-bottom: 2px solid var(--border-color);">
+        <tr>
+          <th style="padding: 8px 10px; width: 44px; text-align: center;">
+            <input type="checkbox" id="receipt-modal-header-chk"
+              onchange="toggleAllReceiptsSelection(this.checked)"
+              style="width: 16px; height: 16px; cursor: pointer; vertical-align: middle;">
+          </th>
+          <th style="padding: 8px 10px; font-weight: 800; min-width: 180px;">CUSTOMER INFO</th>
+          <th style="padding: 8px 10px; font-weight: 800; min-width: 110px;">RIDER</th>
+          <th style="padding: 8px 10px; font-weight: 800; min-width: 130px;">PORTIONS</th>
+          <th style="padding: 8px 10px; font-weight: 800;">SPECIAL REMARKS</th>
+          <th style="padding: 8px 10px; font-weight: 800; text-align: center; width: 75px;">ACTION</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  if (filteredCustomers.length === 0) {
+    html += `
+      <tr>
+        <td colspan="6" style="padding: 36px 16px; text-align: center; color: var(--text-muted); font-size: 0.85rem;">
+          ${allCount === 0 ? 'No orders scheduled for this day.' : 'No orders matched your search or filter.'}
+        </td>
+      </tr>
+    `;
+  } else {
+    filteredCustomers.forEach((c, idx) => {
+      const isSelected = receiptModalSelectedKeys.has(c._key);
+      const bg = isSelected ? 'background: rgba(37, 99, 235, 0.04);' : (idx % 2 === 1 ? 'background: rgba(0,0,0,0.015);' : '');
+      const riderBadge = c.riderName 
+        ? `<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:12px;">🛵 ${escapeReceiptXml(c.riderName)}</span>`
+        : `<span class="badge" style="background:#fef2f2; color:#ef4444; border:1px solid #fecaca; font-weight:600; font-size:0.72rem; padding:2px 6px; border-radius:12px;">— Unassigned</span>`;
+
+      let portionBadges = '';
+      if (c.smallCount > 0) {
+        portionBadges += `<span class="badge" style="background:#ecfdf5; color:#047857; border:1px solid #a7f3d0; font-weight:800; font-size:0.72rem; padding:2px 6px; border-radius:6px; margin-right:4px;">Small × ${c.smallCount}</span>`;
+      }
+      if (c.standardCount > 0) {
+        portionBadges += `<span class="badge" style="background:#eff6ff; color:#1e40af; border:1px solid #bfdbfe; font-weight:800; font-size:0.72rem; padding:2px 6px; border-radius:6px; margin-right:4px;">Std × ${c.standardCount}</span>`;
+      }
+      if (!c.smallCount && !c.standardCount) {
+        portionBadges += `<span class="badge" style="background:#f8fafc; color:#475569; border:1px solid #e2e8f0; font-weight:700; font-size:0.72rem; padding:2px 6px; border-radius:6px; margin-right:4px;">Meals × ${c.totalMeals}</span>`;
+      }
+
+      html += `
+        <tr style="${bg} border-bottom: 1px solid var(--border-light); cursor: pointer; transition: background 0.15s ease;"
+            onclick="toggleCustomerReceiptKey('${c._key}', event)">
+          <td style="padding: 8px 10px; text-align: center;" onclick="event.stopPropagation()">
+            <input type="checkbox"
+              ${isSelected ? 'checked' : ''}
+              onchange="toggleCustomerReceiptKey('${c._key}', event)"
+              style="width: 17px; height: 17px; cursor: pointer; vertical-align: middle;">
+          </td>
+          <td style="padding: 8px 10px;">
+            <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem;">${escapeReceiptXml(c.name)}</div>
+            <div style="font-size: 0.73rem; color: var(--text-muted); margin-top: 1px;">📞 ${escapeReceiptXml(c.phone || '-')}</div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeReceiptXml(c.address || '')}">
+              📍 ${escapeReceiptXml(c.address || 'No Address')}
+            </div>
+          </td>
+          <td style="padding: 8px 10px;">
+            ${riderBadge}
+          </td>
+          <td style="padding: 8px 10px;">
+            <div style="display: flex; flex-wrap: wrap; gap: 3px; align-items: center;">
+              ${portionBadges}
+            </div>
+            <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; margin-top: 3px;">
+              Total: ${c.totalMeals} meal${c.totalMeals > 1 ? 's' : ''}
+            </div>
+          </td>
+          <td style="padding: 8px 10px; color: #b45309; font-weight: 600; font-size: 0.76rem; max-width: 180px;">
+            ${c.special ? escapeReceiptXml(c.special) : '<span style="color:var(--text-muted); font-weight:normal;">—</span>'}
+          </td>
+          <td style="padding: 8px 10px; text-align: center;" onclick="event.stopPropagation()">
+            <button type="button" class="btn btn-outline btn-sm" onclick="printSingleCustomerReceiptFromModal('${c._key}')"
+              style="padding: 3px 8px; font-size: 0.72rem; border-color: #2563eb; color: #1d4ed8; background: #eff6ff; font-weight: 700; border-radius: 6px; cursor: pointer;"
+              title="Print single thermal receipt with auto-cut">
+              🖨️ Print
+            </button>
+          </td>
+        </tr>
+      `;
+    });
+  }
+
+  html += `</tbody></table>`;
+  container.innerHTML = html;
+
+  // Update header master checkbox state
+  const headerChk = document.getElementById('receipt-modal-header-chk');
+  if (headerChk && filteredCustomers.length > 0) {
+    const visibleSelectedCount = filteredCustomers.filter(c => receiptModalSelectedKeys.has(c._key)).length;
+    headerChk.checked = (visibleSelectedCount === filteredCustomers.length);
+    headerChk.indeterminate = (visibleSelectedCount > 0 && visibleSelectedCount < filteredCustomers.length);
+  }
+
+  // Update footer summary
+  const summaryEl = document.getElementById('receipt-modal-selected-summary');
+  const footerCountEl = document.getElementById('receipt-footer-count');
+  const printBtn = document.getElementById('btn-modal-print-selected');
+
+  const selectedCustomers = currentModalCustomersList.filter(c => receiptModalSelectedKeys.has(c._key));
+  const selectedMealsCount = selectedCustomers.reduce((acc, c) => acc + (c.totalMeals || 0), 0);
+
+  if (summaryEl) {
+    summaryEl.innerHTML = `Selected: <span style="color:#2563eb;">${selectedCustomers.length}</span> of ${allCount} orders (<span style="color:#059669;">${selectedMealsCount} total meals</span>)`;
+  }
+  if (footerCountEl) {
+    footerCountEl.textContent = selectedCustomers.length;
+  }
+  if (printBtn) {
+    printBtn.disabled = (selectedCustomers.length === 0);
+    printBtn.style.opacity = (selectedCustomers.length === 0) ? '0.6' : '1';
+  }
+}
+
+/**
+ * Print all currently selected customers from the large modal
+ */
+function printSelectedReceiptsFromModal() {
+  const selectedCustomers = currentModalCustomersList.filter(c => receiptModalSelectedKeys.has(c._key));
+
+  if (!selectedCustomers || selectedCustomers.length === 0) {
+    if (typeof showMaterialToast === 'function') {
+      showMaterialToast('Please select at least one order to print.', 'warning');
+    } else {
+      alert('Please select at least one order to print.');
+    }
+    return;
+  }
+
+  const dayData = getDayOrdersDataForExcel(receiptModalDayOffset);
+
+  const ticketsHtml = selectedCustomers.map((c, seqIdx) => 
+    generateReceiptTicketHtml(c, seqIdx, selectedCustomers.length, dayData)
+  ).join('');
+
+  const fullHtml = buildReceiptDocumentHtml(ticketsHtml, `Simplest Delivery Receipts - ${dayData.dateStr} (${selectedCustomers.length} Orders)`);
+
+  openPrintWindow(fullHtml);
+}
+
+/**
+ * Print single customer from large modal
+ */
+function printSingleCustomerReceiptFromModal(key) {
+  const customer = currentModalCustomersList.find(c => c._key === key);
+  if (!customer) {
+    alert('Customer order not found.');
+    return;
+  }
+
+  const dayData = getDayOrdersDataForExcel(receiptModalDayOffset);
+  const ticketHtml = generateReceiptTicketHtml(customer, 0, 1, dayData);
+  const fullHtml = buildReceiptDocumentHtml(ticketHtml, `Delivery Ticket - ${customer.name}`);
+
+  openPrintWindow(fullHtml);
+}
+
+/**
+ * Generate HTML markup for a single customer receipt ticket (80mm)
  */
 function generateReceiptTicketHtml(c, index, totalCount, meta) {
   const customerName = c.name || 'Unknown';
   const customerPhone = c.phone || '-';
   const customerAddress = c.address || 'Self Pick-up / No Address';
+  const customerRider = c.riderName ? c.riderName.trim() : '';
   const specialRemarks = c.special || '';
   const dateStr = meta.dateStr || '';
   const dayName = meta.dayName || '';
@@ -75,17 +456,6 @@ function generateReceiptTicketHtml(c, index, totalCount, meta) {
         <td style="padding: 7px 0; font-size: 16px; font-weight: 900; color: #000;">Meals</td>
         <td style="padding: 7px 0; font-size: 20px; font-weight: 900; text-align: right; color: #000;">× ${c.totalMeals || 1}</td>
       </tr>
-    `;
-  }
-
-  // Optional item details breakdown if available
-  let itemDetailsHtml = '';
-  if (c.itemLines && c.itemLines.length > 0) {
-    itemDetailsHtml = `
-      <div style="margin-top: 6px; padding-top: 5px; border-top: 1.5px dashed #000; font-size: 12px; line-height: 1.45; font-weight: 700; color: #000;">
-        <div style="font-weight: 900; font-size: 13px; margin-bottom: 3px;">ITEM BREAKDOWN:</div>
-        ${c.itemLines.map(line => `<div>• ${escapeReceiptXml(line)}</div>`).join('')}
-      </div>
     `;
   }
 
@@ -136,6 +506,9 @@ function generateReceiptTicketHtml(c, index, totalCount, meta) {
         <div style="font-size: 14px; font-weight: 800; color: #000; margin-top: 5px; line-height: 1.35; word-break: break-word;">
           ADD: ${escapeReceiptXml(customerAddress)}
         </div>
+        <div style="font-size: 16px; font-weight: 900; color: #000; margin-top: 6px; padding-top: 4px; border-top: 1.5px dashed #000;">
+          🛵 RIDER: ${escapeReceiptXml(customerRider ? customerRider : '—')}
+        </div>
       </div>
 
       <!-- High-Contrast Section Banner: Meal Portions -->
@@ -143,14 +516,13 @@ function generateReceiptTicketHtml(c, index, totalCount, meta) {
         MEAL PORTIONS &amp; QUANTITY
       </div>
 
-      <!-- Meals Breakdown Table -->
+      <!-- Meals Breakdown Table (No item breakdown) -->
       <div>
         <table style="width: 100%; border-collapse: collapse; margin-top: 2px;">
           <tbody>
             ${portionRows}
           </tbody>
         </table>
-        ${itemDetailsHtml}
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 3px solid #000; border-bottom: 3px solid #000; margin-top: 8px; padding: 6px 0;">
           <span style="font-size: 16px; font-weight: 900; color: #000;">TOTAL MEALS:</span>
           <span style="font-size: 24px; font-weight: 900; color: #000;">${c.totalMeals}</span>
@@ -318,40 +690,19 @@ function buildReceiptDocumentHtml(ticketsHtml, title) {
 }
 
 /**
- * Print all thermal receipts for the specified day
+ * Direct print all thermal receipts for the specified day
  */
 function printDailyThermalReceipts(dayOffset = 0) {
-  if (typeof getDayOrdersDataForExcel !== 'function') {
-    alert('Order data processor is not ready.');
-    return;
-  }
-
-  const dayData = getDayOrdersDataForExcel(dayOffset);
-  if (!dayData.customers || dayData.customers.length === 0) {
-    if (typeof showMaterialToast === 'function') {
-      showMaterialToast(`No orders found for ${dayData.dateStr}.`, 'warning');
-    } else {
-      alert(`No orders found for ${dayData.dateStr}.`);
-    }
-    return;
-  }
-
-  const ticketsHtml = dayData.customers.map((c, idx) => 
-    generateReceiptTicketHtml(c, idx, dayData.customers.length, dayData)
-  ).join('');
-
-  const fullHtml = buildReceiptDocumentHtml(ticketsHtml, `Simplest Delivery Receipts - ${dayData.dateStr}`);
-
-  openPrintWindow(fullHtml);
+  openReceiptPrinterModal(dayOffset);
 }
 
 /**
- * Print a single customer's thermal receipt on demand
+ * Direct print single customer by index
  */
 function printSingleCustomerThermalReceipt(customerIndex, dayOffset) {
   const currentOffset = (typeof dayOffset === 'number') 
     ? dayOffset 
-    : (typeof currentExportDayOffset === 'number' ? currentExportDayOffset : (typeof ordersDayOffset !== 'undefined' ? ordersDayOffset : 0));
+    : (typeof ordersDayOffset !== 'undefined' ? ordersDayOffset : 0);
 
   const dayData = getDayOrdersDataForExcel(currentOffset);
   if (!dayData.customers || !dayData.customers[customerIndex]) {
@@ -385,11 +736,10 @@ function openPrintWindow(htmlContent) {
 }
 
 /**
- * Wrapper for printing all receipts from the export modal
+ * Wrapper for backward compatibility
  */
 function printDailyThermalReceiptsFromModal() {
-  const offset = typeof currentExportDayOffset === 'number' ? currentExportDayOffset : 0;
-  printDailyThermalReceipts(offset);
+  openReceiptPrinterModal(typeof currentExportDayOffset === 'number' ? currentExportDayOffset : 0);
 }
 
 /**
@@ -412,20 +762,20 @@ function printOrderReceiptById(orderId) {
   const phone = (ord.customerPhone || contact.phone || '').trim();
   const address = (contact.address || ord.address || '').trim();
 
+  // Resolve rider
+  const riderId = ord.riderId || contact.riderId;
+  const riderName = (riderId && contactsMap[riderId])
+    ? contactsMap[riderId].name
+    : (ord.riderName || contact.riderName || '');
+
   let smallCount = 0;
   let standardCount = 0;
-  const itemLines = [];
 
   if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
     ord.items.forEach(it => {
       const p = it.portion || 'Standard';
       if (p.toLowerCase() === 'small') smallCount++;
       else standardCount++;
-
-      const addonsList = Array.isArray(it.addons) ? it.addons : Array.from(it.addons || []);
-      const addonText = addonsList.length > 0 ? ` (+${addonsList.join(', ')})` : '';
-      const idText = it.id ? `#${it.id} ` : '';
-      itemLines.push(`${idText}${p}${addonText}`.trim());
     });
   } else {
     const qty = parseInt(ord.quantity) || 1;
@@ -437,9 +787,9 @@ function printOrderReceiptById(orderId) {
   const customerObj = {
     name: name,
     phone: phone,
+    riderName: riderName,
     address: address,
     special: ord.remark || '',
-    itemLines: itemLines,
     smallCount: smallCount,
     standardCount: standardCount,
     totalMeals: smallCount + standardCount

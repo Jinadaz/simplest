@@ -13,6 +13,15 @@ function setDashboardDayOffset(offsetChange) {
   } else {
     dashboardDayOffset += offsetChange;
   }
+  const now = new Date();
+  const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + dashboardDayOffset);
+  const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+  if (typeof ensureOrdersDateLoaded === 'function') {
+    ensureOrdersDateLoaded(dateStr);
+  }
+  if (typeof ensureMenusMonthLoaded === 'function') {
+    ensureMenusMonthLoaded(dateStr.substring(0, 7));
+  }
   renderDashboard();
 }
 
@@ -42,6 +51,13 @@ function renderDashboard() {
   const dd = String(targetDate.getDate()).padStart(2, '0');
   const dateStr = `${yyyy}-${mm}-${dd}`;
   
+  if (typeof ensureOrdersDateLoaded === 'function') {
+    ensureOrdersDateLoaded(dateStr);
+  }
+  if (typeof ensureMenusMonthLoaded === 'function') {
+    ensureMenusMonthLoaded(`${yyyy}-${mm}`);
+  }
+
   const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
   const formattedDate = formatDateReadable(dateStr);
 
@@ -429,6 +445,12 @@ function renderDashboard() {
     const fM = String(fDate.getMonth() + 1).padStart(2, '0');
     const fD = String(fDate.getDate()).padStart(2, '0');
     const fStr = `${fY}-${fM}-${fD}`;
+    if (typeof ensureOrdersDateLoaded === 'function') {
+      ensureOrdersDateLoaded(fStr);
+    }
+    if (typeof ensureMenusMonthLoaded === 'function') {
+      ensureMenusMonthLoaded(`${fY}-${fM}`);
+    }
     const fDay = fDate.toLocaleDateString('en-US', { weekday: 'short' });
     const fReadable = formatDateReadable(fStr);
     const fMenu = dbGetMenuByDate(fStr);

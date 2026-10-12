@@ -9,8 +9,11 @@ let cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVeg
 
 let dbListeners = [];
 let isDbInitialized = false;
+const monitoredMenuMonths = {};
 const monitoredMonthRefs = {};
+const monitoredDateRefs = {};
 const loadedMonthsSet = new Set();
+const loadedDatesSet = new Set();
 let isMigrationRunning = false;
 
 /**
@@ -45,34 +48,19 @@ async function initDatabase() {
 
     console.log('[DB] Attaching Firebase Realtime Database listeners...');
 
-    db.ref('menus').on('value', (snapshot) => {
-      cachedMenus = snapshot.val() || {};
-      notifyDataChanged();
-    });
-
+    // 1. Contacts: Load 100% full dataset
     db.ref('contacts').on('value', (snapshot) => {
       cachedContacts = snapshot.val() || {};
       notifyDataChanged();
     });
 
-    // Auto-migrate legacy flat orders to year-month partitions and attach partition listeners
-    await migrateLegacyOrdersIfNeeded();
-
-    // Attach rolling 3-month listeners (prev, current, next month)
-    const now = new Date();
-    const prevMonth = getOrderMonthKey(new Date(now.getFullYear(), now.getMonth() - 1, 1));
-    const currMonth = getOrderMonthKey(now);
-    const nextMonth = getOrderMonthKey(new Date(now.getFullYear(), now.getMonth() + 1, 1));
-
-    listenToOrdersMonth(prevMonth);
-    listenToOrdersMonth(currMonth);
-    listenToOrdersMonth(nextMonth);
-
+    // 2. Credit Logs: Load 100% full dataset
     db.ref('credit_logs').on('value', (snapshot) => {
       cachedCreditLogs = snapshot.val() || {};
       notifyDataChanged();
     });
 
+    // 3. Settings / Pricing
     db.ref('settings/pricing').on('value', (snapshot) => {
       const val = snapshot.val();
       if (val && (val.standard !== undefined || val.small !== undefined)) {
@@ -89,8 +77,17 @@ async function initDatabase() {
       notifyDataChanged();
     });
 
-    // Clean state: Listeners attached, no auto-seeding for live user database
-    console.log('[DB] Realtime Database listeners active and connected.');
+    const now = new Date();
+    const currMonthKey = getOrderMonthKey(now);
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+
+    // 4. Menu: Load current month only
+    ensureMenusMonthLoaded(currMonthKey);
+
+    // 5. Orders: Load today only at startup (other days loaded on-demand)
+    ensureOrdersDateLoaded(todayStr);
+
+    console.log('[DB] Realtime Database listeners active (Today Orders + Current Month Menu + All Contacts & Credits).');
   } else {
     // LocalStorage fallback engine
     if (isDbInitialized) return;
@@ -337,6 +334,9 @@ async function seedInitialData(saveFn) {
 async function dbSaveMenu(dateStr, menuData) {
   const record = { ...menuData, updatedAt: Date.now() };
   cachedMenus[dateStr] = record;
+  if (dateStr && dateStr.length >= 7) {
+    ensureMenusMonthLoaded(dateStr.substring(0, 7));
+  }
   notifyDataChanged();
 
   if (isFirebaseLive && db) {
@@ -348,6 +348,45 @@ async function dbSaveMenu(dateStr, menuData) {
 
 function dbGetMenuByDate(dateStr) {
   return cachedMenus[dateStr] || null;
+}
+
+function listenToMenusMonth(yearMonth) {
+  if (!yearMonth || monitoredMenuMonths[yearMonth]) return;
+  if (!isFirebaseLive || !db) return;
+
+  monitoredMenuMonths[yearMonth] = true;
+  const startKey = `${yearMonth}-01`;
+  const endKey = `${yearMonth}-31`;
+
+  console.log(`[DB] Attaching Menu monthly listener: ${yearMonth}`);
+  db.ref('menus')
+    .orderByKey()
+    .startAt(startKey)
+    .endAt(endKey)
+    .on('value', (snapshot) => {
+      const data = snapshot.val() || {};
+
+      // Remove any menus in cachedMenus for this month that were deleted remotely
+      for (const k of Object.keys(cachedMenus)) {
+        if (k.startsWith(yearMonth) && !data[k]) {
+          delete cachedMenus[k];
+        }
+      }
+
+      // Merge current month menus
+      for (const [k, v] of Object.entries(data)) {
+        cachedMenus[k] = v;
+      }
+
+      notifyDataChanged();
+    });
+}
+
+function ensureMenusMonthLoaded(yearMonth) {
+  if (!yearMonth) return;
+  if (!monitoredMenuMonths[yearMonth]) {
+    listenToMenusMonth(yearMonth);
+  }
 }
 
 // Contact DB Actions
@@ -390,7 +429,7 @@ async function dbDeleteContact(contactId) {
   }
 }
 
-// Partitioning Helpers & Monthly Listeners
+// Partitioning Helpers & Daily / Monthly Listeners
 
 function getOrderMonthKey(ordOrDate) {
   if (!ordOrDate) {
@@ -418,11 +457,16 @@ function getOrderMonthKey(ordOrDate) {
 
 async function migrateLegacyOrdersIfNeeded() {
   if (!isFirebaseLive || !db || isMigrationRunning) return;
+  // If already flagged as migrated, do not pull full database
+  if (localStorage.getItem('simplest_orders_migrated_v2') === 'done') return;
   isMigrationRunning = true;
   try {
     const snapshot = await db.ref('orders').once('value');
     const data = snapshot.val();
-    if (!data) return;
+    if (!data) {
+      localStorage.setItem('simplest_orders_migrated_v2', 'done');
+      return;
+    }
 
     const updates = {};
     let migratedCount = 0;
@@ -438,17 +482,53 @@ async function migrateLegacyOrdersIfNeeded() {
     }
 
     if (migratedCount > 0) {
-      console.log(`[DB Migration] Auto-migrating ${migratedCount} legacy orders into YYYY-MM partitioned nodes...`);
+      console.log(`[DB Migration] Migrated ${migratedCount} legacy orders into YYYY-MM partitioned nodes...`);
       await db.ref().update(updates);
-      console.log(`[DB Migration] Successfully migrated ${migratedCount} orders!`);
-      if (typeof showMaterialToast === 'function') {
-        showMaterialToast(`⚡ Database upgraded to Year-Month partitions (${migratedCount} orders organized)`, 'success');
-      }
     }
+    localStorage.setItem('simplest_orders_migrated_v2', 'done');
   } catch (err) {
-    console.error('[DB Migration] Auto-migration error:', err);
+    console.error('[DB Migration] Migration error:', err);
   } finally {
     isMigrationRunning = false;
+  }
+}
+
+function listenToOrdersDate(dateStr) {
+  if (!dateStr) return;
+  const monthKey = dateStr.substring(0, 7);
+  // If the whole month is already being monitored, no need for date-level listener
+  if (monitoredMonthRefs[monthKey] || monitoredDateRefs[dateStr]) return;
+  if (!isFirebaseLive || !db) return;
+
+  loadedDatesSet.add(dateStr);
+  console.log(`[DB] Attaching Order daily listener: ${dateStr}`);
+  const qRef = db.ref(`orders/${monthKey}`).orderByChild('date').equalTo(dateStr);
+  monitoredDateRefs[dateStr] = qRef;
+
+  qRef.on('value', (snapshot) => {
+    const dayData = snapshot.val() || {};
+
+    // Remove any orders in cachedOrders for this date that were deleted remotely
+    for (const [id, ord] of Object.entries(cachedOrders)) {
+      if (ord && ord.date === dateStr && !dayData[id]) {
+        delete cachedOrders[id];
+      }
+    }
+
+    // Merge latest day orders
+    for (const [id, ord] of Object.entries(dayData)) {
+      cachedOrders[id] = ord;
+    }
+
+    notifyDataChanged();
+  });
+}
+
+function ensureOrdersDateLoaded(dateStr) {
+  if (!dateStr) return;
+  const monthKey = dateStr.substring(0, 7);
+  if (!monitoredMonthRefs[monthKey] && !monitoredDateRefs[dateStr]) {
+    listenToOrdersDate(dateStr);
   }
 }
 
@@ -456,7 +536,20 @@ function listenToOrdersMonth(monthKey) {
   if (!monthKey || monitoredMonthRefs[monthKey]) return;
   if (!isFirebaseLive || !db) return;
 
+  // Detach any date-specific listeners for this month to avoid duplicate listeners
+  Object.keys(monitoredDateRefs).forEach(d => {
+    if (d.startsWith(monthKey)) {
+      try {
+        if (monitoredDateRefs[d] && typeof monitoredDateRefs[d].off === 'function') {
+          monitoredDateRefs[d].off('value');
+        }
+      } catch (e) {}
+      delete monitoredDateRefs[d];
+    }
+  });
+
   loadedMonthsSet.add(monthKey);
+  console.log(`[DB] Attaching Order full-month listener: ${monthKey}`);
   const mRef = db.ref(`orders/${monthKey}`);
   monitoredMonthRefs[monthKey] = mRef;
 
@@ -498,7 +591,9 @@ async function dbAddOrder(orderData) {
   const monthKey = getOrderMonthKey(record);
 
   cachedOrders[orderId] = record;
-  ensureOrdersMonthLoaded(monthKey);
+  if (record.date) {
+    ensureOrdersDateLoaded(record.date);
+  }
   notifyDataChanged();
 
   if (isFirebaseLive && db) {
@@ -522,7 +617,9 @@ async function dbUpdateOrder(orderId, updates) {
   const newMonth = getOrderMonthKey(record);
 
   cachedOrders[orderId] = record;
-  ensureOrdersMonthLoaded(newMonth);
+  if (record.date) {
+    ensureOrdersDateLoaded(record.date);
+  }
   notifyDataChanged();
 
   if (isFirebaseLive && db) {

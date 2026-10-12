@@ -809,6 +809,12 @@ function openCustomerProfileModal(contactId) {
     }
   }
 
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  if (typeof ensureOrdersMonthLoaded === 'function') {
+    ensureOrdersMonthLoaded(currentMonthKey);
+  }
+
   const customerOrders = Object.values(cachedOrders || {})
     .filter(ord => ord.contactId === contactId)
     .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));

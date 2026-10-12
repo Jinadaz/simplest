@@ -15,6 +15,11 @@ function initMenuView() {
 function setMenuMonthOffset(change) {
   if (change === 0) menuMonthOffset = 0;
   else menuMonthOffset += change;
+  const { year, month } = getMonthMeta(menuMonthOffset);
+  const targetYearMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+  if (typeof ensureMenusMonthLoaded === 'function') {
+    ensureMenusMonthLoaded(targetYearMonth);
+  }
   renderMenu();
 }
 
@@ -40,6 +45,10 @@ function toDateStr(y, m, d) {
 ───────────────────────────────────────── */
 function renderMenu() {
   const { year, month, label } = getMonthMeta(menuMonthOffset);
+  const targetYearMonth = `${year}-${String(month + 1).padStart(2, '0')}`;
+  if (typeof ensureMenusMonthLoaded === 'function') {
+    ensureMenusMonthLoaded(targetYearMonth);
+  }
 
   const titleEl = document.getElementById('menu-month-title');
   if (titleEl) titleEl.textContent = label;

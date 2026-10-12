@@ -20,9 +20,9 @@ function setOrdersDayOffset(offsetChange) {
   else ordersDayOffset += offsetChange;
   const now = new Date();
   const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + ordersDayOffset);
-  const targetYearMonth = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}`;
-  if (typeof ensureOrdersMonthLoaded === 'function') {
-    ensureOrdersMonthLoaded(targetYearMonth);
+  const targetDateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+  if (typeof ensureOrdersDateLoaded === 'function') {
+    ensureOrdersDateLoaded(targetDateStr);
   }
   renderOrders();
 }
@@ -461,9 +461,8 @@ function renderOrders() {
   const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
   const dd = String(targetDate.getDate()).padStart(2, '0');
   const targetDateStr = `${yyyy}-${mm}-${dd}`;
-  const targetYearMonth = `${yyyy}-${mm}`;
-  if (typeof ensureOrdersMonthLoaded === 'function') {
-    ensureOrdersMonthLoaded(targetYearMonth);
+  if (typeof ensureOrdersDateLoaded === 'function') {
+    ensureOrdersDateLoaded(targetDateStr);
   }
 
   const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });

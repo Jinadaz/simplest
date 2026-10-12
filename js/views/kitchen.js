@@ -9,6 +9,12 @@ function initKitchenView() {
 function setKitchenDayOffset(offsetChange) {
   if (offsetChange === 0) kitchenDayOffset = 0;
   else kitchenDayOffset += offsetChange;
+  const now = new Date();
+  const targetDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + kitchenDayOffset);
+  const dateStr = `${targetDate.getFullYear()}-${String(targetDate.getMonth() + 1).padStart(2, '0')}-${String(targetDate.getDate()).padStart(2, '0')}`;
+  if (typeof ensureOrdersDateLoaded === 'function') {
+    ensureOrdersDateLoaded(dateStr);
+  }
   renderKitchen();
 }
 
@@ -30,6 +36,10 @@ function renderKitchen() {
   const mm = String(targetDate.getMonth() + 1).padStart(2, '0');
   const dd = String(targetDate.getDate()).padStart(2, '0');
   const dateStr = `${yyyy}-${mm}-${dd}`;
+
+  if (typeof ensureOrdersDateLoaded === 'function') {
+    ensureOrdersDateLoaded(dateStr);
+  }
 
   const dayName = targetDate.toLocaleDateString('en-US', { weekday: 'long' });
   const formattedDate = formatDateReadable(dateStr);

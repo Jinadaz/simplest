@@ -289,10 +289,10 @@
                   <span>📊 Export Daily Excel</span>
                 </button>
                 <button type="button" class="btn btn-outline btn-sm"
-                  onclick="printDailyThermalReceipts(typeof ordersDayOffset !== 'undefined' ? ordersDayOffset : 0)"
-                  title="Print 80mm thermal receipts for all customers with auto-cut (POS-MAC CP-Q3)"
+                  onclick="openReceiptPrinterModal(typeof ordersDayOffset !== 'undefined' ? ordersDayOffset : 0)"
+                  title="Open Print Receipts window to select and print (80mm Auto-Cut)"
                   style="display:flex; align-items:center; gap:0.35rem; font-weight:700; background:rgba(37, 99, 235, 0.1); border-color:#2563eb; color:#1d4ed8; padding:0.35rem 0.75rem; border-radius:18px; cursor:pointer;">
-                  <span>🖨️ Print Receipts</span>
+                  <span>🖨️ Print Receipts (80mm)</span>
                 </button>
                 <span class="badge badge-paid" id="orders-total-weekly-count"
                   style="font-size:0.8rem; padding:0.3rem 0.7rem;">0 Orders</span>
@@ -1364,14 +1364,93 @@
           style="display: flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.9rem;" title="Print A4 Summary Table">
           <span>📄 Print Summary (A4)</span>
         </button>
-        <button type="button" class="btn btn-outline btn-sm" onclick="printDailyThermalReceiptsFromModal()"
-          style="display: flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.95rem; border-color: #2563eb; color: #1d4ed8; background: #eff6ff; font-weight: 700;" title="Print 80mm thermal receipts with auto-cut for CP-Q3">
-          <span>🖨️ Print Receipts (Auto-Cut)</span>
-        </button>
         <button type="button" class="btn btn-primary btn-sm" onclick="exportDailyOrdersToExcel()"
           style="display: flex; align-items: center; gap: 0.35rem; background: #059669; border-color: #059669; padding: 0.45rem 1rem;">
           <span>📊 Download Excel (.xlsx)</span>
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 8. DEDICATED THERMAL RECEIPT PRINTER LARGE MODAL -->
+  <div id="receipt-printer-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 860px; width: 94vw;">
+      <div class="modal-header" style="padding: 1rem 1.25rem;">
+        <div style="display: flex; align-items: center; gap: 0.6rem;">
+          <span style="font-size: 1.45rem;">🖨️</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 1.15rem; font-weight: 800;">Print Receipts (80mm)</h3>
+            <div style="font-size: 0.74rem; color: var(--text-muted); margin-top: 2px;">
+              Select orders to print with auto-cut for POS-MAC CP-Q3
+            </div>
+          </div>
+        </div>
+        <button type="button" class="modal-close" onclick="closeReceiptPrinterModal()">✕</button>
+      </div>
+
+      <div class="modal-body" style="padding: 1rem 1.25rem;">
+        <!-- Day Navigator -->
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; background: var(--bg-surface); padding: 0.5rem 0.75rem; border-radius: 8px; border: 1px solid var(--border-light);">
+          <button type="button" class="btn btn-outline btn-sm" onclick="setReceiptDayOffset(-1)" style="padding: 0.3rem 0.75rem;">
+            ← Prev Day
+          </button>
+          <div style="text-align: center;">
+            <div id="receipt-modal-date-title" style="font-weight: 800; font-size: 0.95rem; color: var(--text-main);">
+              Today
+            </div>
+            <div id="receipt-modal-date-sub" style="font-size: 0.72rem; color: var(--text-muted); margin-top: 1px;">
+              --
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="setReceiptDayOffset(1)" style="padding: 0.3rem 0.75rem;">
+            Next Day →
+          </button>
+        </div>
+
+        <!-- Toolbar: Select Actions, Rider Filter, Search -->
+        <div style="display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; margin-bottom: 0.85rem; flex-wrap: wrap;">
+          <div style="display: flex; gap: 0.45rem; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleAllReceiptsSelection(true)" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 700;">
+              ✓ Select All
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleAllReceiptsSelection(false)" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; font-weight: 700;">
+              ✕ Deselect All
+            </button>
+            <div style="display: flex; align-items: center; gap: 0.3rem;">
+              <span style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600;">Rider:</span>
+              <select id="receipt-rider-filter-select" onchange="handleReceiptRiderFilterChange(this.value)"
+                style="padding: 0.32rem 0.65rem; font-size: 0.76rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main); font-weight: 600;">
+                <option value="All">All Riders</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="flex: 1; min-width: 180px; max-width: 280px;">
+            <input type="text" id="receipt-modal-search" placeholder="🔍 Search customer, phone, address..."
+              oninput="handleReceiptSearchInput(this.value)"
+              style="width: 100%; padding: 0.38rem 0.65rem; font-size: 0.76rem; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface); color: var(--text-main);">
+          </div>
+        </div>
+
+        <!-- Large Customer Listing -->
+        <div id="receipt-modal-list-container" style="max-height: 420px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px;">
+          <!-- Dynamically populated by receiptPrinter.js -->
+        </div>
+      </div>
+
+      <div class="modal-footer" style="display: flex; gap: 0.75rem; justify-content: space-between; align-items: center; padding: 0.85rem 1.25rem; border-top: 1px solid var(--border-light); background: var(--bg-surface); flex-wrap: wrap;">
+        <div id="receipt-modal-selected-summary" style="font-size: 0.82rem; font-weight: 700; color: var(--text-main);">
+          Selected: 0 Orders
+        </div>
+        <div style="display: flex; gap: 0.65rem; align-items: center;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="closeReceiptPrinterModal()" style="padding: 0.45rem 1rem;">
+            Cancel
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-modal-print-selected" onclick="printSelectedReceiptsFromModal()"
+            style="display: flex; align-items: center; gap: 0.4rem; padding: 0.48rem 1.25rem; background: #2563eb; border-color: #2563eb; font-weight: 800; font-size: 0.85rem; border-radius: 6px;">
+            <span>🖨️ Print Selected (<span id="receipt-footer-count">0</span>)</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>

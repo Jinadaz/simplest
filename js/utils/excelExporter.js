@@ -29,6 +29,77 @@ async function loadExcelTemplateBuffer() {
 }
 
 /**
+ * Format addon tag names (e.g. 'protein' -> 'Protein', 'rice' -> 'Rice', 'vege' -> 'Vege')
+ */
+function formatAddonTag(tag) {
+  if (!tag) return '';
+  const lower = String(tag).toLowerCase().trim();
+  if (lower === 'protein') return 'Protein';
+  if (lower === 'rice') return 'Rice';
+  if (lower === 'vege' || lower === 'vegetable') return 'Vege';
+  return tag.charAt(0).toUpperCase() + tag.slice(1);
+}
+
+/**
+ * Format human-readable addon summary for the daily Excel sheet "SPECIAL" column
+ */
+function formatCustomerAddonsSummary(mealsList, smallCount, standardCount) {
+  if (!mealsList || mealsList.length === 0) return '';
+
+  const totalMeals = mealsList.length;
+  const mealsWithAddons = mealsList.filter(m => m.addons && m.addons.length > 0);
+
+  if (mealsWithAddons.length === 0) return '';
+
+  // Case 1: Total 1 meal for this customer
+  if (totalMeals === 1) {
+    return '+' + mealsWithAddons[0].addons.join(', +');
+  }
+
+  // Case 2: ALL meals have the exact same addons
+  if (mealsWithAddons.length === totalMeals) {
+    const firstSignature = mealsList[0].addons.slice().sort().join(',');
+    const allIdentical = mealsList.every(m => m.addons.slice().sort().join(',') === firstSignature);
+    if (allIdentical) {
+      return totalMeals + 'x +' + mealsList[0].addons.join(', +');
+    }
+  }
+
+  // Case 3: Mixed meals
+  // If customer has only Small OR only Standard meals
+  if (smallCount === 0 || standardCount === 0) {
+    if (mealsWithAddons.length === 1) {
+      return '1x +' + mealsWithAddons[0].addons.join(', +');
+    }
+    const comboMap = {};
+    mealsWithAddons.forEach(m => {
+      const combo = '+' + m.addons.join(', +');
+      comboMap[combo] = (comboMap[combo] || 0) + 1;
+    });
+    return Object.entries(comboMap).map(([combo, count]) => {
+      return (count > 1 ? count + 'x ' : '1x ') + combo;
+    }).join('; ');
+  }
+
+  // Customer has BOTH Small and Standard meals: indicate portion (Small or ST)
+  const comboMap = {};
+  mealsWithAddons.forEach(m => {
+    const portionLabel = m.portion === 'Small' ? 'Small' : 'ST';
+    const comboKey = portionLabel + ': +' + m.addons.join(', +');
+    comboMap[comboKey] = (comboMap[comboKey] || 0) + 1;
+  });
+
+  return Object.entries(comboMap).map(([key, count]) => {
+    const [portionLabel, addonPart] = key.split(': ');
+    const totalOfPortion = portionLabel === 'Small' ? smallCount : standardCount;
+    if (totalOfPortion === 1 && count === 1) {
+      return portionLabel + ': ' + addonPart;
+    }
+    return (count > 1 ? count + 'x ' : '1x ') + portionLabel + ': ' + addonPart;
+  }).join('; ');
+}
+
+/**
  * Aggregate order data for a single date based on dayOffset
  */
 function getDayOrdersDataForExcel(dayOffset = 0) {
@@ -76,12 +147,23 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
         name: name,
         phone: phone,
         address: address,
+        riderName: '',
         remarks: [],
+        mealsList: [],
         itemLines: [],
         smallCount: 0,
         standardCount: 0,
         totalMeals: 0
       };
+    }
+
+    // Resolve and assign rider
+    const riderId = ord.riderId || contact.riderId;
+    const currentRider = (riderId && contactsMap[riderId])
+      ? contactsMap[riderId].name
+      : (ord.riderName || contact.riderName || '');
+    if (!customerMap[groupKey].riderName && currentRider) {
+      customerMap[groupKey].riderName = currentRider;
     }
 
     // Collect remarks
@@ -92,15 +174,34 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
       }
     }
 
-    // Collect item dish lines if available
+    // Collect item dish lines and meal details (including addons)
     if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
       ord.items.forEach(it => {
         const portion = it.portion || 'Standard';
         const addonsList = Array.isArray(it.addons) ? it.addons : Array.from(it.addons || []);
-        const addonText = addonsList.length > 0 ? ` (+${addonsList.join(', ')})` : '';
+        const formattedAddons = Array.from(new Set(addonsList.map(formatAddonTag).filter(Boolean)));
+        const addonText = formattedAddons.length > 0 ? ` (+${formattedAddons.join(', ')})` : '';
         const idText = it.id ? `#${it.id} ` : '';
         customerMap[groupKey].itemLines.push(`${idText}${portion}${addonText}`.trim());
+
+        customerMap[groupKey].mealsList.push({
+          id: it.id || (customerMap[groupKey].mealsList.length + 1),
+          portion: portion,
+          addons: formattedAddons
+        });
       });
+    } else {
+      const qty = parseInt(ord.quantity) || 1;
+      const portion = ord.portion || 'Standard';
+      const addonsList = Array.isArray(ord.addons) ? ord.addons : Array.from(ord.addons || []);
+      const formattedAddons = Array.from(new Set(addonsList.map(formatAddonTag).filter(Boolean)));
+      for (let q = 0; q < qty; q++) {
+        customerMap[groupKey].mealsList.push({
+          id: customerMap[groupKey].mealsList.length + 1,
+          portion: portion,
+          addons: formattedAddons
+        });
+      }
     }
 
     // Count portions accurately by inspecting itemsData if available
@@ -129,17 +230,32 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
     customerMap[groupKey].totalMeals += (ordSmall + ordStd);
   });
 
-  // Convert map to list and format remarks
-  const customerList = Object.values(customerMap).map(c => ({
-    name: c.name,
-    phone: c.phone,
-    special: c.remarks.join('; '),
-    itemLines: c.itemLines,
-    smallCount: c.smallCount,
-    standardCount: c.standardCount,
-    totalMeals: c.totalMeals,
-    address: c.address
-  }));
+  // Convert map to list and format remarks (includes addons recorded into SPECIAL)
+  const customerList = Object.values(customerMap).map(c => {
+    const addonsSummary = formatCustomerAddonsSummary(c.mealsList, c.smallCount, c.standardCount);
+    const specialParts = [];
+    if (addonsSummary) {
+      specialParts.push(addonsSummary);
+    }
+    if (c.remarks && c.remarks.length > 0) {
+      const cleanRemarks = c.remarks.filter(r => r && r.trim());
+      if (cleanRemarks.length > 0) {
+        specialParts.push(cleanRemarks.join('; '));
+      }
+    }
+
+    return {
+      name: c.name,
+      phone: c.phone,
+      riderName: c.riderName || '',
+      special: specialParts.join('; '),
+      itemLines: c.itemLines,
+      smallCount: c.smallCount,
+      standardCount: c.standardCount,
+      totalMeals: c.totalMeals,
+      address: c.address
+    };
+  });
 
   // Sort alphabetically by customer name
   customerList.sort((a, b) => a.name.localeCompare(b.name, 'zh-Hans-CN', { sensitivity: 'base' }));
@@ -348,13 +464,12 @@ function renderExportExcelModalContent() {
           '<th style="padding: 6px 8px; font-weight: 700; text-align: center;">400</th>' +
           '<th style="padding: 6px 8px; font-weight: 700; text-align: center;">ST</th>' +
           '<th style="padding: 6px 8px; font-weight: 700;">ADD</th>' +
-          '<th style="padding: 6px 8px; font-weight: 700; text-align: center;">PRINT</th>' +
         '</tr>' +
       '</thead>' +
       '<tbody>';
 
   if (dayData.customers.length === 0) {
-    html += '<tr><td colspan="7" style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No orders scheduled for this day</td></tr>';
+    html += '<tr><td colspan="6" style="padding: 24px; text-align: center; color: var(--text-muted); font-size: 0.8rem;">No orders scheduled for this day</td></tr>';
   } else {
     dayData.customers.forEach((c, idx) => {
       const bg = idx % 2 === 1 ? 'background: rgba(0,0,0,0.02);' : '';
@@ -365,9 +480,6 @@ function renderExportExcelModalContent() {
         '<td style="padding: 5px 8px; text-align: center; font-weight: 700; color: #047857;">' + (c.smallCount > 0 ? c.smallCount : '') + '</td>' +
         '<td style="padding: 5px 8px; text-align: center; font-weight: 700; color: #1d4ed8;">' + (c.standardCount > 0 ? c.standardCount : '') + '</td>' +
         '<td style="padding: 5px 8px; color: var(--text-muted); max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="' + (c.address || '') + '">' + (c.address || '-') + '</td>' +
-        '<td style="padding: 3px 6px; text-align: center; white-space: nowrap;">' +
-          '<button type="button" class="btn btn-outline btn-sm" onclick="printSingleCustomerThermalReceipt(' + idx + ')" style="padding: 2px 7px; font-size: 0.68rem; border-color: #2563eb; color: #1d4ed8; background: #eff6ff; font-weight: 600; border-radius: 4px; cursor: pointer;" title="Print 80mm thermal receipt with auto-cut">🖨️ Receipt</button>' +
-        '</td>' +
       '</tr>';
     });
   }
