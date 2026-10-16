@@ -159,9 +159,13 @@ function renderMenu() {
         ? `<div class="cal-food-thumb" style="background-image:url('${data.image}')"></div>`
         : `<div class="cal-food-thumb cal-food-no-img">${getSvgIcon('utensils','')}</div>`;
       
+      const meatBadge = data.hasMeatSelect
+        ? `<div style="font-size:0.62rem; color:#e11d48; font-weight:800; background:#ffe4e6; border:1px solid #fecdd3; padding:1px 4px; border-radius:4px; margin-top:2px; width:fit-content; line-height:1.2;">🥩 Meat Select</div>`
+        : '';
       content = `
         ${img}
         <div class="cal-food-name">${data.foodName}</div>
+        ${meatBadge}
       `;
       if (!avail) cellClass += ' cal-unavail';
 
@@ -251,6 +255,8 @@ function populateMenuFormData(dateStr, dayName) {
   if (remarkInputEl) remarkInputEl.value = existing ? (existing.remark || '') : '';
   const availInputEl = document.getElementById('menu-input-available');
   if (availInputEl) availInputEl.checked = existing ? (existing.available !== false) : true;
+  const meatSelectEl = document.getElementById('menu-input-meat-select');
+  if (meatSelectEl) meatSelectEl.checked = existing ? (existing.hasMeatSelect === true) : false;
   document.getElementById('menu-input-holiday-note').value = existing ? (existing.holidayNote  || '') : '';
 
   // Reset file input
@@ -383,15 +389,19 @@ async function saveMenuSubmit(event) {
     const availInputEl = document.getElementById('menu-input-available');
     const availVal = availInputEl ? availInputEl.checked : true;
 
+    const meatSelectEl = document.getElementById('menu-input-meat-select');
+    const hasMeatSelect = meatSelectEl ? meatSelectEl.checked : false;
+
     menuData = {
       ...menuData,
-      foodName:    foodName,
-      price:       pricing.standard,
-      priceSmall:  pricing.small,
-      description: document.getElementById('menu-input-desc').value.trim(),
-      remark:      remarkVal,
-      available:   availVal,
-      image:       currentCompressedBase64 || (existing ? existing.image : '')
+      foodName:      foodName,
+      price:         pricing.standard,
+      priceSmall:    pricing.small,
+      description:   document.getElementById('menu-input-desc').value.trim(),
+      remark:        remarkVal,
+      available:     availVal,
+      hasMeatSelect: hasMeatSelect,
+      image:         currentCompressedBase64 || (existing ? existing.image : '')
     };
   }
 

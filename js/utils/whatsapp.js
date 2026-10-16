@@ -13,7 +13,8 @@ function createWhatsAppOrderLink(phone, customerName, day, dateStr, foodName, qu
     const list = items.map(it => {
       const addonsList = Array.isArray(it.addons) ? it.addons : [];
       const addonText = addonsList.length > 0 ? ` (+${addonsList.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})` : '';
-      return `   • Meal ${it.id || ''}: ${it.portion}${addonText}`;
+      const meatText = it.meat ? ` [${it.meat}]` : '';
+      return `   • Meal ${it.id || ''}: ${it.portion}${meatText}${addonText}`;
     }).join('\n');
     foodLines = `🥗 *${foodName}* × ${quantity}\n${list}`;
   } else {
@@ -68,7 +69,8 @@ deliveries.forEach((item, index) => {
     const details = item.items.map(it => {
       const addonsList = Array.isArray(it.addons) ? it.addons : [];
       const addonText = addonsList.length > 0 ? ` (+${addonsList.join(', ')})` : '';
-      return `#${it.id} ${it.portion}${addonText}`;
+      const meatText = it.meat ? ` [${it.meat}]` : '';
+      return `#${it.id} ${it.portion}${meatText}${addonText}`;
     }).join(' | ');
     msg += `Details: ${details}\n\n`;
   } else {

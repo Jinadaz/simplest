@@ -61,7 +61,8 @@ function formatOrderItemsDetails(items) {
     const addonText = addonsList.length > 0 
       ? ` (+${addonsList.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})`
       : '';
-    return `#${it.id || ''} ${it.portion || 'Standard'}${addonText}`.trim();
+    const meatText = it.meat ? ` [🥩 ${it.meat}]` : '';
+    return `#${it.id || ''} ${it.portion || 'Standard'}${meatText}${addonText}`.trim();
   }).join(' • ');
 }
 
@@ -1075,12 +1076,77 @@ document.addEventListener('click', (e) => {
 
 let selectedOrderDates = new Set();
 let orderMealItems = [
-  { id: 1, portion: 'Standard', addons: new Set() }
+  { id: 1, portion: 'Standard', meat: '', addons: new Set() }
 ];
 
 // Helper property getters for backward compatibility
 const selectedOrderPortion = 'Standard';
 const selectedOrderAddons = new Set();
+
+/**
+ * Check if the currently chosen date(s) or editing order has Meat Select enabled
+ */
+function isMeatSelectAvailableForCurrentOrder() {
+  if (selectedOrderDates && selectedOrderDates.size > 0) {
+    for (const d of selectedOrderDates) {
+      const m = dbGetMenuByDate(d);
+      if (m && m.hasMeatSelect) return true;
+    }
+    return false;
+  }
+  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
+  if (editingOrderId && cachedOrders[editingOrderId]) {
+    const ord = cachedOrders[editingOrderId];
+    const m = dbGetMenuByDate(ord.date);
+    if (m && m.hasMeatSelect) return true;
+    if (ord.meatSelect || (ord.items && ord.items.some(it => it.meat))) return true;
+    if (ord.remark && (ord.remark.includes('Beef') || ord.remark.includes('Duck') || ord.remark.includes('Fish') || ord.remark.includes('Shrimp'))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Select / toggle meat for a specific meal item
+ */
+function selectItemMeat(index, meat) {
+  if (orderMealItems[index]) {
+    orderMealItems[index].meat = (orderMealItems[index].meat === meat) ? '' : meat;
+    syncMeatSelectionToRemarkInput();
+    renderOrderMealItems();
+  }
+}
+
+/**
+ * Sync selected meats into the order Remark input field
+ */
+function syncMeatSelectionToRemarkInput() {
+  const remarkInput = document.getElementById('order-input-remark');
+  if (!remarkInput) return;
+  let val = remarkInput.value.trim();
+
+  // Strip existing [Meat: ...] tag
+  val = val.replace(/^\[Meat:[^\]]+\]\s*/i, '').trim();
+
+  const meats = [];
+  orderMealItems.forEach((m, i) => {
+    if (m.meat) {
+      if (orderMealItems.length > 1) {
+        meats.push(`#${i + 1} ${m.meat}`);
+      } else {
+        meats.push(m.meat);
+      }
+    }
+  });
+
+  if (meats.length > 0) {
+    const meatTag = `[Meat: ${meats.join(', ')}]`;
+    remarkInput.value = val ? `${meatTag} ${val}` : meatTag;
+  } else {
+    remarkInput.value = val;
+  }
+}
 
 function renderOrderMealItems() {
   const container = document.getElementById('order-meal-items-container');
@@ -1158,6 +1224,38 @@ function renderOrderMealItems() {
           </div>
         </div>
 
+        ${isMeatSelectAvailableForCurrentOrder() ? `
+          <div class="order-meal-meat-row" style="margin-top: 0.45rem; padding-top: 0.45rem; border-top: 1px dashed var(--border-color);">
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
+              <span style="font-size: 0.75rem; color: #9f1239; font-weight: 800; display: flex; align-items: center; gap: 3px;">
+                🥩 Meat Select:
+              </span>
+              <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 700;">
+                ${item.meat ? `<span style="color:#e11d48; font-weight:800;">${item.meat}</span> selected` : 'Choose 1 (Optional)'}
+              </span>
+            </div>
+            <div class="order-meal-meat-chips" style="display: flex; gap: 0.35rem; flex-wrap: wrap; align-items: center;">
+              <button type="button" class="meat-chip-btn ${item.meat === 'Beef' ? 'active' : ''}" onclick="selectItemMeat(${idx}, 'Beef')">
+                🥩 Beef
+              </button>
+              <button type="button" class="meat-chip-btn ${item.meat === 'Duck' ? 'active' : ''}" onclick="selectItemMeat(${idx}, 'Duck')">
+                🦆 Duck
+              </button>
+              <button type="button" class="meat-chip-btn ${item.meat === 'Fish' ? 'active' : ''}" onclick="selectItemMeat(${idx}, 'Fish')">
+                🐟 Fish
+              </button>
+              <button type="button" class="meat-chip-btn ${item.meat === 'Shrimp' ? 'active' : ''}" onclick="selectItemMeat(${idx}, 'Shrimp')">
+                🦐 Shrimp
+              </button>
+              ${item.meat ? `
+                <button type="button" class="meat-chip-btn meat-chip-clear" onclick="selectItemMeat(${idx}, '')" title="Clear selection" style="padding: 2px 6px; font-size: 0.72rem; color: #64748b; border: 1px dashed #cbd5e1; background: transparent;">
+                  ✕ Clear
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
+
         <div class="order-meal-addons-row">
           <span style="font-size: 0.72rem; color: var(--text-muted); font-weight: 700; flex-shrink: 0;">Add-on:</span>
           <div class="order-meal-addon-chips">
@@ -1220,6 +1318,7 @@ function changeOrderQuantity(delta) {
       orderMealItems.push({
         id: orderMealItems.length + 1,
         portion: prevPortion,
+        meat: '',
         addons: new Set()
       });
     }
@@ -1228,6 +1327,7 @@ function changeOrderQuantity(delta) {
       orderMealItems.pop();
     }
   }
+  syncMeatSelectionToRemarkInput();
   renderOrderMealItems();
   updateOrderFormCalculations();
 }
@@ -1379,12 +1479,17 @@ function renderOrderDateCards(defaultDateStr = null, weekOffset = orderModalWeek
       imgHtml = `<div class="date-select-img" style="display:flex; align-items:center; justify-content:center;">${getSvgIcon('utensils', 'sm')}</div>`;
     }
 
+    const meatSelectTag = (menuObj && menuObj.hasMeatSelect)
+      ? `<div style="font-size:0.6rem; color:#e11d48; font-weight:800; background:#ffe4e6; border:1px solid #fecdd3; border-radius:3px; padding:0 3px; margin-top:2px; display:inline-block;">🥩 Meat Select</div>`
+      : '';
+
     card.innerHTML = `
       <div class="date-select-check">✓</div>
       ${imgHtml}
       <div class="date-select-day">${d.day.slice(0, 3)}</div>
       <div class="date-select-date" style="font-weight:800;">${dateNumStr}</div>
       <div class="date-select-food">${foodName}</div>
+      ${meatSelectTag}
     `;
 
     if (!isPast) {
@@ -1428,6 +1533,7 @@ function toggleOrderDateCard(dateStr, dayName, menuObj) {
     card.classList.toggle('active', selectedOrderDates.has(dStr));
   });
 
+  renderOrderMealItems();
   renderOrderModalWeekSelector();
   updateOrderFormCalculations();
 }
@@ -1468,7 +1574,7 @@ function openAddOrderModal(preselectedContactId = null) {
   if (mealCreditCheckbox) mealCreditCheckbox.checked = false;
 
   // Reset meal items to 1 Standard meal
-  orderMealItems = [{ id: 1, portion: 'Standard', addons: new Set() }];
+  orderMealItems = [{ id: 1, portion: 'Standard', meat: '', addons: new Set() }];
   renderOrderMealItems();
 
   document.getElementById('order-input-quantity').value = 1;
@@ -1547,6 +1653,7 @@ function openEditOrderModal(orderId) {
     orderMealItems = ord.items.map((it, idx) => ({
       id: idx + 1,
       portion: it.portion || 'Standard',
+      meat: it.meat || ord.meatSelect || '',
       addons: new Set(Array.isArray(it.addons) ? it.addons : [])
     }));
   } else {
@@ -1559,8 +1666,22 @@ function openEditOrderModal(orderId) {
       orderMealItems.push({
         id: i,
         portion: p,
+        meat: ord.meatSelect || '',
         addons: new Set(addonsList)
       });
+    }
+  }
+
+  // Pre-select meat from remark if items didn't have meat property
+  if (!orderMealItems.some(it => it.meat) && ord.remark) {
+    const match = ord.remark.match(/\[Meat:\s*([^\]]+)\]/i);
+    if (match && match[1]) {
+      const parsedMeat = match[1].trim();
+      if (['Beef', 'Duck', 'Fish', 'Shrimp'].includes(parsedMeat)) {
+        if (orderMealItems.length === 1) {
+          orderMealItems[0].meat = parsedMeat;
+        }
+      }
     }
   }
   renderOrderMealItems();
@@ -2000,6 +2121,7 @@ async function saveOrderSubmit(event) {
       return {
         id: idx + 1,
         portion: mealItem.portion,
+        meat: mealItem.meat || '',
         addons: Array.from(mealItem.addons),
         unitPrice: itemBasePrice,
         addonPrice: itemAddonPrice,
@@ -2026,6 +2148,15 @@ async function saveOrderSubmit(event) {
       finalRemark = finalRemark ? `${finalRemark} • Rider Paid by Credit` : 'Rider Paid by Credit';
     }
 
+    // Ensure meat selection is written into remark
+    const selectedMeats = orderMealItems.map((m, i) => m.meat ? (orderMealItems.length > 1 ? `#${i+1} ${m.meat}` : m.meat) : null).filter(Boolean);
+    if (selectedMeats.length > 0) {
+      const meatTag = `[Meat: ${selectedMeats.join(', ')}]`;
+      if (!finalRemark.includes('[Meat:')) {
+        finalRemark = finalRemark ? `${meatTag} ${finalRemark}` : meatTag;
+      }
+    }
+
     const allPortions = Array.from(new Set(orderMealItems.map(m => m.portion)));
     const summaryPortion = allPortions.length === 1 ? allPortions[0] : 'Mixed';
     const allAddons = Array.from(new Set(orderMealItems.flatMap(m => Array.from(m.addons))));
@@ -2049,6 +2180,7 @@ async function saveOrderSubmit(event) {
       portion: summaryPortion,
       addons: allAddons,
       items: itemsData,
+      meatSelect: selectedMeats.join(', '),
       unitPrice: itemsData[0]?.unitPrice || 0,
       quantity: quantity,
       totalAmount: dayTotalAmount,
@@ -2101,6 +2233,7 @@ async function saveOrderSubmit(event) {
       return {
         id: idx + 1,
         portion: mealItem.portion,
+        meat: mealItem.meat || '',
         addons: Array.from(mealItem.addons),
         unitPrice: itemBasePrice,
         addonPrice: itemAddonPrice,
@@ -2131,6 +2264,15 @@ async function saveOrderSubmit(event) {
       finalRemark = finalRemark ? `${finalRemark} • Rider Paid by Credit` : 'Rider Paid by Credit';
     }
 
+    // Ensure meat selection is written into remark
+    const selectedMeats = orderMealItems.map((m, i) => m.meat ? (orderMealItems.length > 1 ? `#${i+1} ${m.meat}` : m.meat) : null).filter(Boolean);
+    if (selectedMeats.length > 0) {
+      const meatTag = `[Meat: ${selectedMeats.join(', ')}]`;
+      if (!finalRemark.includes('[Meat:')) {
+        finalRemark = finalRemark ? `${meatTag} ${finalRemark}` : meatTag;
+      }
+    }
+
     const allPortions = Array.from(new Set(orderMealItems.map(m => m.portion)));
     const summaryPortion = allPortions.length === 1 ? allPortions[0] : 'Mixed';
     const allAddons = Array.from(new Set(orderMealItems.flatMap(m => Array.from(m.addons))));
@@ -2154,6 +2296,7 @@ async function saveOrderSubmit(event) {
       portion: summaryPortion,
       addons: allAddons,
       items: itemsData,
+      meatSelect: selectedMeats.join(', '),
       unitPrice: itemsData[0]?.unitPrice || 0,
       quantity: quantity,
       totalAmount: dayTotalAmount,

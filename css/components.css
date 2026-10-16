@@ -1150,6 +1150,37 @@
   color: #ffffff;
 }
 
+/* Meat Select Chips */
+.meat-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  border-radius: 6px;
+  border: 1.5px solid var(--border-color);
+  background: var(--card-bg, #ffffff);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.meat-chip-btn:hover {
+  border-color: #f43f5e;
+  background: #fff1f2;
+  color: #e11d48;
+}
+
+.meat-chip-btn.active {
+  border-color: #e11d48;
+  background: #ffe4e6;
+  color: #be123c;
+  box-shadow: 0 0 0 1.5px #e11d48;
+  font-weight: 800;
+}
+
 [data-theme="dark"] .order-meal-card {
   background: #15221e;
   border-color: #223530;
@@ -1183,6 +1214,25 @@
 [data-theme="dark"] .addon-chip-btn.active .addon-chip-price {
   background: #10b981;
   color: #0f1715;
+}
+
+[data-theme="dark"] .meat-chip-btn {
+  background: #1e293b;
+  border-color: #334155;
+  color: #cbd5e1;
+}
+
+[data-theme="dark"] .meat-chip-btn:hover {
+  border-color: #fb7185;
+  background: rgba(225, 29, 72, 0.15);
+  color: #fda4af;
+}
+
+[data-theme="dark"] .meat-chip-btn.active {
+  background: rgba(225, 29, 72, 0.25);
+  border-color: #f43f5e;
+  color: #fda4af;
+  box-shadow: 0 0 0 1.5px #f43f5e;
 }
 
 [data-theme="dark"] .order-meal-price-badge {
