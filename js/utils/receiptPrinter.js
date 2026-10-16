@@ -529,7 +529,7 @@ function buildReceiptDocumentHtml(ticketsHtml, title) {
     /* 80mm Thermal Paper Specifications (POS-MAC CP-Q3) */
     /* 80mm width x 100mm height guarantees Chrome detects Portrait (width < height) while keeping preview short */
     @page {
-      size: 80mm 100mm;
+      size: 80mm auto;
       margin: 0mm;
     }
     *, *:before, *:after {
@@ -615,7 +615,7 @@ function buildReceiptDocumentHtml(ticketsHtml, title) {
     }
     @media print {
       @page {
-        size: 80mm 100mm;
+        size: 80mm auto;
         margin: 0mm;
       }
       .screen-actions {
