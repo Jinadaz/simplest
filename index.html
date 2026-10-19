@@ -891,22 +891,29 @@
           <div class="form-group" id="order-rider-fee-section"
             style="background: var(--bg-surface-secondary, #f8fafc); border: 1.5px solid var(--border-color); border-radius: var(--radius-md); padding: 0.65rem 0.85rem; margin-bottom: 0.85rem;">
             <div
-              style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem;">
+              style="display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; flex-wrap: wrap;">
               <div style="display: flex; align-items: center; gap: 0.4rem;">
                 <span style="font-size: 1.05rem;">🛵</span>
                 <label class="form-label" style="margin-bottom: 0; font-weight: 800;">Rider & Delivery Fee</label>
                 <span
-                  style="font-size: 0.68rem; background: #e0f2fe; color: #0284c7; padding: 1px 6px; border-radius: 9999px; font-weight: 800;">Per
-                  Delivery</span>
+                  style="font-size: 0.68rem; background: #e0f2fe; color: #0284c7; padding: 1px 6px; border-radius: 9999px; font-weight: 800;">Per Delivery</span>
               </div>
-              <div style="display: flex; align-items: center; gap: 0.35rem;">
-                <span style="font-weight: 800; color: var(--text-muted); font-size: 0.85rem;">RM</span>
-                <input type="number" step="0.01" min="0" id="order-input-rider-fee" class="form-control"
-                  style="width: 85px; text-align: right; font-weight: 800; font-size: 0.95rem; padding: 0.35rem 0.55rem; color: var(--primary-dark);"
-                  value="0.00" placeholder="0.00" onfocus="this.select()" onblur="if(this.value !== '') { const v = parseFloat(this.value); if(!isNaN(v)) this.value = v.toFixed(2); } updateOrderFormCalculations();" oninput="handleOrderRiderFeeInput()" onchange="handleOrderRiderFeeInput()" />
+              <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <label style="display: flex; align-items: center; gap: 0.35rem; cursor: pointer; margin-bottom: 0; user-select: none;">
+                  <input type="checkbox" id="order-checkbox-self-collect" onchange="toggleOrderSelfCollect(this.checked)"
+                    style="width: 15px; height: 15px; accent-color: var(--primary-accent); cursor: pointer;" />
+                  <span style="font-weight: 700; font-size: 0.82rem; color: var(--text-main);">Self Collect</span>
+                </label>
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                  <span style="font-weight: 800; color: var(--text-muted); font-size: 0.85rem;">RM</span>
+                  <input type="number" step="0.01" min="0" id="order-input-rider-fee" class="form-control"
+                    style="width: 85px; text-align: right; font-weight: 800; font-size: 0.95rem; padding: 0.35rem 0.55rem; color: var(--primary-dark);"
+                    value="0.00" placeholder="0.00" onfocus="this.select()" onblur="if(this.value !== '') { const v = parseFloat(this.value); if(!isNaN(v)) this.value = v.toFixed(2); } updateOrderFormCalculations();" oninput="handleOrderRiderFeeInput()" onchange="handleOrderRiderFeeInput()" />
+                </div>
               </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;" id="order-rider-select-wrap">
               <select id="order-select-rider" class="form-control" style="font-size: 0.825rem; padding: 0.35rem 0.6rem;"
                 onchange="handleOrderRiderSelectChange(this.value)">
                 <option value="">-- No Rider Assigned (RM 0.00) --</option>

@@ -138,8 +138,8 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
     const contact = contactsMap[ord.contactId] || {};
     const name = (ord.customerName || contact.name || 'Unknown').trim();
     const phone = (ord.customerPhone || contact.phone || '').trim();
-    const address = (contact.address || ord.address || '').trim();
-    const groupKey = ord.contactId || (name + '_' + phone);
+    const address = (ord.address || contact.address || '').trim();
+    const groupKey = (ord.contactId || (name + '_' + phone)) + (address ? ('_' + address) : '');
 
     if (!customerMap[groupKey]) {
       customerMap[groupKey] = {
@@ -157,13 +157,20 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
       };
     }
 
-    // Resolve and assign rider
-    const riderId = ord.riderId || contact.riderId;
-    const currentRider = (riderId && contactsMap[riderId])
-      ? contactsMap[riderId].name
-      : (ord.riderName || contact.riderName || '');
-    if (!customerMap[groupKey].riderName && currentRider) {
-      customerMap[groupKey].riderName = currentRider;
+    // Resolve and assign rider (prioritize Self Collect, then order's specific rider name or ID)
+    const isOrderSelfCollect = ord.isSelfCollect || (ord.riderName === 'Self Collect') || (ord.riderId === 'self-collect');
+    if (isOrderSelfCollect) {
+      customerMap[groupKey].isSelfCollect = true;
+      customerMap[groupKey].riderName = 'Self Collect';
+    } else if (!customerMap[groupKey].isSelfCollect) {
+      const orderRiderName = ord.riderName ||
+        ((ord.riderId && contactsMap[ord.riderId]) ? contactsMap[ord.riderId].name : '');
+      const contactRiderName = (contact.riderName ||
+        ((contact.riderId && contactsMap[contact.riderId]) ? contactsMap[contact.riderId].name : ''));
+      const currentRider = orderRiderName || contactRiderName;
+      if (!customerMap[groupKey].riderName && currentRider) {
+        customerMap[groupKey].riderName = currentRider;
+      }
     }
 
     // Collect remarks
@@ -245,6 +252,7 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
     }
 
     return {
+      contactId: c.contactId,
       name: c.name,
       phone: c.phone,
       riderName: c.riderName || '',
@@ -253,7 +261,8 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
       smallCount: c.smallCount,
       standardCount: c.standardCount,
       totalMeals: c.totalMeals,
-      address: c.address
+      address: c.address,
+      isSelfCollect: c.isSelfCollect || false
     };
   });
 

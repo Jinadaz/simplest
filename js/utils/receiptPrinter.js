@@ -23,7 +23,7 @@ function initReceiptLogo() {
   if (typeof window === 'undefined') return;
   const img = new Image();
   img.crossOrigin = 'anonymous';
-  img.onload = function() {
+  img.onload = function () {
     try {
       const canvas = document.createElement('canvas');
       const size = 120;
@@ -32,11 +32,11 @@ function initReceiptLogo() {
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, size, size);
       cachedReceiptLogoDataUrl = canvas.toDataURL('image/png');
-    } catch(e) {
+    } catch (e) {
       cachedReceiptLogoDataUrl = img.src || 'icons/logo.png';
     }
   };
-  img.onerror = function() {
+  img.onerror = function () {
     const brandImg = document.querySelector('.brand-logo-img');
     if (brandImg && brandImg.src) {
       cachedReceiptLogoDataUrl = brandImg.src;
@@ -53,8 +53,8 @@ if (typeof window !== 'undefined') {
  * Open the dedicated large receipt printer modal
  */
 function openReceiptPrinterModal(dayOffset) {
-  receiptModalDayOffset = (typeof dayOffset === 'number') 
-    ? dayOffset 
+  receiptModalDayOffset = (typeof dayOffset === 'number')
+    ? dayOffset
     : (typeof ordersDayOffset !== 'undefined' ? ordersDayOffset : 0);
 
   receiptModalSearchQuery = '';
@@ -289,9 +289,12 @@ function renderReceiptCustomerListOnly() {
     filteredCustomers.forEach((c, idx) => {
       const isSelected = receiptModalSelectedKeys.has(c._key);
       const bg = isSelected ? 'background: rgba(37, 99, 235, 0.04);' : (idx % 2 === 1 ? 'background: rgba(0,0,0,0.015);' : '');
-      const riderBadge = c.riderName 
-        ? `<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:12px;">🛵 ${escapeReceiptXml(c.riderName)}</span>`
-        : `<span class="badge" style="background:#fef2f2; color:#ef4444; border:1px solid #fecaca; font-weight:600; font-size:0.72rem; padding:2px 6px; border-radius:12px;">— Unassigned</span>`;
+      const isSC = c.isSelfCollect || (c.riderName === 'Self Collect') || (c.riderId === 'self-collect');
+      const riderBadge = isSC
+        ? `<span class="badge" style="background:#fef3c7; color:#92400e; border:1px solid #fde68a; font-weight:800; font-size:0.75rem; padding:2px 8px; border-radius:12px;">🏪 Self Collect</span>`
+        : (c.riderName
+          ? `<span class="badge" style="background:#eff6ff; color:#1d4ed8; border:1px solid #bfdbfe; font-weight:700; font-size:0.75rem; padding:2px 8px; border-radius:12px;">🛵 ${escapeReceiptXml(c.riderName)}</span>`
+          : `<span class="badge" style="background:#fef2f2; color:#ef4444; border:1px solid #fecaca; font-weight:600; font-size:0.72rem; padding:2px 6px; border-radius:12px;">— Unassigned</span>`);
 
       let portionBadges = '';
       if (c.smallCount > 0) {
@@ -317,7 +320,7 @@ function renderReceiptCustomerListOnly() {
             <div style="font-weight: 800; color: var(--text-main); font-size: 0.9rem;">${escapeReceiptXml(c.name)}</div>
             <div style="font-size: 0.73rem; color: var(--text-muted); margin-top: 1px;">📞 ${escapeReceiptXml(c.phone || '-')}</div>
             <div style="font-size: 0.72rem; color: var(--text-muted); margin-top: 2px; max-width: 240px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeReceiptXml(c.address || '')}">
-              📍 ${escapeReceiptXml(c.address || 'No Address')}
+              📍 ${escapeReceiptXml(c.address || (isSC ? 'Self Collect' : 'No Address'))}
             </div>
           </td>
           <td style="padding: 8px 10px;">
@@ -394,7 +397,7 @@ function printSelectedReceiptsFromModal() {
 
   const dayData = getDayOrdersDataForExcel(receiptModalDayOffset);
 
-  const ticketsHtml = selectedCustomers.map((c, seqIdx) => 
+  const ticketsHtml = selectedCustomers.map((c, seqIdx) =>
     generateReceiptTicketHtml(c, seqIdx, selectedCustomers.length, dayData)
   ).join('');
 
@@ -424,10 +427,11 @@ function printSingleCustomerReceiptFromModal(key) {
  * Generate HTML markup for a single customer receipt ticket (80mm)
  */
 function generateReceiptTicketHtml(c, index, totalCount, meta) {
+  const isSC = c.isSelfCollect || (c.riderName === 'Self Collect') || (c.riderId === 'self-collect');
   const customerName = c.name || 'Unknown';
   const customerPhone = c.phone || '-';
-  const customerAddress = c.address || 'Self Pick-up / No Address';
-  const customerRider = c.riderName ? c.riderName.trim() : '';
+  const customerAddress = c.address || (isSC ? 'Self Collect' : 'Self Pick-up / No Address');
+  const customerRider = isSC ? 'Self Collect' : (c.riderName ? c.riderName.trim() : '');
   const specialRemarks = c.special || '';
 
   let portionDetailText = '';
@@ -479,7 +483,7 @@ function generateReceiptTicketHtml(c, index, totalCount, meta) {
 
       <!-- 4. Rider -->
       <div style="font-size: 15px; font-weight: 900; color: #000; margin-bottom: 4px; padding-top: 3px; border-top: 1.5px dashed #000;">
-        🛵 RIDER: ${escapeReceiptXml(customerRider ? customerRider : '—')}
+        ${isSC ? '🏪 RIDER: Self Collect' : `🛵 RIDER: ${escapeReceiptXml(customerRider ? customerRider : '—')}`}
       </div>
 
       <!-- 5. Food Quantity -->
@@ -684,8 +688,8 @@ function printDailyThermalReceipts(dayOffset = 0) {
  * Direct print single customer by index
  */
 function printSingleCustomerThermalReceipt(customerIndex, dayOffset) {
-  const currentOffset = (typeof dayOffset === 'number') 
-    ? dayOffset 
+  const currentOffset = (typeof dayOffset === 'number')
+    ? dayOffset
     : (typeof ordersDayOffset !== 'undefined' ? ordersDayOffset : 0);
 
   const dayData = getDayOrdersDataForExcel(currentOffset);
@@ -744,13 +748,13 @@ function printOrderReceiptById(orderId) {
   const contact = contactsMap[ord.contactId] || {};
   const name = (ord.customerName || contact.name || 'Unknown').trim();
   const phone = (ord.customerPhone || contact.phone || '').trim();
-  const address = (contact.address || ord.address || '').trim();
+  const address = (ord.address || contact.address || '').trim();
 
   // Resolve rider
-  const riderId = ord.riderId || contact.riderId;
-  const riderName = (riderId && contactsMap[riderId])
-    ? contactsMap[riderId].name
-    : (ord.riderName || contact.riderName || '');
+  const isSC = ord.isSelfCollect || (ord.riderName === 'Self Collect') || (ord.riderId === 'self-collect');
+  const riderName = isSC ? 'Self Collect' : (ord.riderName ||
+    ((ord.riderId && contactsMap[ord.riderId]) ? contactsMap[ord.riderId].name : '') ||
+    (contact.riderName || ((contact.riderId && contactsMap[contact.riderId]) ? contactsMap[contact.riderId].name : '')));
 
   let smallCount = 0;
   let standardCount = 0;
@@ -772,7 +776,8 @@ function printOrderReceiptById(orderId) {
     name: name,
     phone: phone,
     riderName: riderName,
-    address: address,
+    isSelfCollect: isSC,
+    address: address || (isSC ? 'Self Collect' : ''),
     special: ord.remark || '',
     smallCount: smallCount,
     standardCount: standardCount,

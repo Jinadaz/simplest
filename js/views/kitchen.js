@@ -101,7 +101,8 @@ function renderKitchen() {
 
   dayOrders.forEach(ord => {
     const cust = contactsMap[ord.contactId] || {};
-    const riderId = ord.riderId || cust.riderId || 'unassigned';
+    const isSC = ord.isSelfCollect || (ord.riderName === 'Self Collect') || (ord.riderId === 'self-collect');
+    const riderId = isSC ? 'self-collect' : (ord.riderId || cust.riderId || 'unassigned');
     
     if (!riderGroups[riderId]) {
       riderGroups[riderId] = [];
@@ -109,7 +110,8 @@ function renderKitchen() {
 
     riderGroups[riderId].push({
       ...ord,
-      address: ord.address || cust.address || '',
+      isSelfCollect: isSC,
+      address: isSC ? (ord.address || 'Self Collect') : (ord.address || cust.address || ''),
       customerPhone: ord.customerPhone || cust.phone || ''
     });
   });
@@ -119,18 +121,21 @@ function renderKitchen() {
   // Render group for each rider
   Object.keys(riderGroups).forEach(riderId => {
     const items = riderGroups[riderId];
+    const isSelfCollect = riderId === 'self-collect';
     const isUnassigned = riderId === 'unassigned';
-    const riderContact = !isUnassigned ? contactsMap[riderId] : null;
+    const riderContact = (!isUnassigned && !isSelfCollect) ? contactsMap[riderId] : null;
     
-    const riderName = isUnassigned
-      ? 'Unassigned Rider'
-      : (riderContact ? riderContact.name : 'Assigned Rider');
+    const riderName = isSelfCollect
+      ? 'Self Collect'
+      : (isUnassigned
+        ? 'Unassigned Rider'
+        : (riderContact ? riderContact.name : (items[0] && items[0].riderName ? items[0].riderName : 'Assigned Rider')));
     
     const riderPhone = riderContact ? riderContact.phone : '';
     const riderSentCount = items.filter(i => i.dispatched).length;
 
     // Generate WhatsApp Manifest URL for this Rider
-    const waManifestUrl = createWhatsAppRiderManifestLink(riderPhone, riderName, dateStr, items);
+    const waManifestUrl = (!isSelfCollect && riderPhone) ? createWhatsAppRiderManifestLink(riderPhone, riderName, dateStr, items) : '#';
 
     let itemsHtml = '';
     items.forEach((item, idx) => {
@@ -179,16 +184,18 @@ function renderKitchen() {
       <div class="rider-dispatch-card">
         <div class="rider-dispatch-header">
           <div class="rider-dispatch-title-group">
-            <span style="font-size: 1.35rem;">🛵</span>
+            <span style="font-size: 1.35rem;">${isSelfCollect ? '🏪' : '🛵'}</span>
             <div>
               <div class="rider-dispatch-name">${riderName} ${isUnassigned ? '⚠️' : ''}</div>
-              <div class="rider-dispatch-phone">${riderPhone ? `📞 ${riderPhone} • ` : ''}${riderSentCount} / ${items.length} Sent</div>
+              <div class="rider-dispatch-phone">${riderPhone ? `📞 ${riderPhone} • ` : ''}${riderSentCount} / ${items.length} ${isSelfCollect ? 'Collected' : 'Sent'}</div>
             </div>
           </div>
           <div>
-            <a href="${waManifestUrl}" target="_blank" class="btn btn-whatsapp btn-sm" style="border-radius: 20px; font-weight: 700; gap: 0.35rem;">
-              ${getSvgIcon('whatsapp', 'sm')} Send Manifest via WhatsApp
-            </a>
+            ${!isSelfCollect && riderPhone ? `
+              <a href="${waManifestUrl}" target="_blank" class="btn btn-whatsapp btn-sm" style="border-radius: 20px; font-weight: 700; gap: 0.35rem;">
+                ${getSvgIcon('whatsapp', 'sm')} Send Manifest via WhatsApp
+              </a>
+            ` : ''}
           </div>
         </div>
         <div class="rider-dispatch-body">

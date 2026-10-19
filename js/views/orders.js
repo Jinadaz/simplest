@@ -110,11 +110,16 @@ function getOrderPriceBreakdown(ord) {
     mealSub = `+RM${(parseFloat(ord.addonPerMeal) * (parseInt(ord.quantity) || 1)).toFixed(2)} Add-on`;
   }
 
+  const isSelfCollect = ord.isSelfCollect || (ord.riderName === 'Self Collect') || (ord.riderId === 'self-collect');
   let riderDisplay = formatRM(riderFee);
   let riderSub = '';
   let riderBadge = formatRM(riderFee);
 
-  if (riderPaidByCredit) {
+  if (isSelfCollect) {
+    riderDisplay = 'RM 0.00';
+    riderSub = '🏪 Self Collect';
+    riderBadge = 'Self Collect';
+  } else if (riderPaidByCredit) {
     riderSub = '💳 Credit';
     riderBadge = `${formatRM(riderFee)} (Credit)`;
   }
@@ -285,6 +290,12 @@ function renderOrders() {
         ord.items
       );
 
+      const isSC = ord.isSelfCollect || (riderName === 'Self Collect') || (riderId === 'self-collect');
+      const riderBadgeHtml = isSC
+        ? `<span style="font-size: 0.75rem; font-weight: 800; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; padding: 1px 6px; border-radius: 4px; width: fit-content;">🏪 Self Collect</span>`
+        : `<span style="font-size: 0.78rem; font-weight: 700; color: ${riderName ? 'var(--primary-dark)' : 'var(--text-muted)'};">${riderName ? `🛵 ${riderName}` : '—'}</span>`;
+      const feeHtml = isSC ? '' : (ord.riderFee && parseFloat(ord.riderFee) > 0 ? `<span style="font-size: 0.68rem; color: #0284c7; font-weight: 700;">Fee: RM${parseFloat(ord.riderFee).toFixed(2)}</span>` : '');
+
       // Desktop Table Row for Month View
       tableRowsHtml += `
         <tr data-order-id="${ord.orderId}">
@@ -336,10 +347,8 @@ function renderOrders() {
           </td>
           <td>
             <div style="display: flex; flex-direction: column; gap: 0.2rem;">
-              <span style="font-size: 0.78rem; font-weight: 700; color: ${riderName ? 'var(--primary-dark)' : 'var(--text-muted)'};">
-                ${riderName ? `🛵 ${riderName}` : '—'}
-              </span>
-              ${ord.riderFee && parseFloat(ord.riderFee) > 0 ? `<span style="font-size: 0.68rem; color: #0284c7; font-weight: 700;">Fee: RM${parseFloat(ord.riderFee).toFixed(2)}</span>` : ''}
+              ${riderBadgeHtml}
+              ${feeHtml}
               <span class="badge ${isDispatched ? 'badge-paid' : 'badge-unpaid'}" style="font-size: 0.65rem; padding: 0.15rem 0.4rem; width: fit-content;">
                 ${isDispatched ? '✓ Sent' : '⏳ Pending'}
               </span>
@@ -392,7 +401,8 @@ function renderOrders() {
               <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">${ord.portion || 'Standard'}</span>
               ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
             `}
-            ${riderName ? ` • 🛵 ${riderName}${ord.riderFee && parseFloat(ord.riderFee) > 0 ? ` (Fee: RM${parseFloat(ord.riderFee).toFixed(2)})` : ''}` : ''}
+            ${isSC ? ' • 🏪 Self Collect' : (riderName ? ` • 🛵 ${riderName}${ord.riderFee && parseFloat(ord.riderFee) > 0 ? ` (Fee: RM${parseFloat(ord.riderFee).toFixed(2)})` : ''}` : '')}
+          </div>
           </div>
           <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
             <div style="display: flex; gap: 0.35rem; align-items: center;">
@@ -914,6 +924,46 @@ function selectOrderDeliveryAddress(num) {
   if (customer) {
     const assignedRiderId = (num === 2) ? (customer.riderId2 || '') : (customer.riderId || '');
     refreshOrderRiderOptions(assignedRiderId);
+  }
+}
+
+function toggleOrderSelfCollect(isSelfCollect, triggerCalc = true) {
+  const chk = document.getElementById('order-checkbox-self-collect');
+  if (chk) chk.checked = !!isSelfCollect;
+
+  const feeInput = document.getElementById('order-input-rider-fee');
+  const rdrCreditBox = document.getElementById('order-rider-credit-box');
+  const rdrCreditChk = document.getElementById('order-checkbox-use-rider-credit');
+  const promptEl = document.getElementById('order-self-collect-prompt');
+  const riderWrap = document.getElementById('order-rider-select-wrap');
+
+  if (isSelfCollect) {
+    if (promptEl) promptEl.style.display = 'block';
+    if (riderWrap) riderWrap.style.display = 'none';
+    if (feeInput) {
+      feeInput.value = '0.00';
+      feeInput.disabled = true;
+      feeInput.style.opacity = '0.5';
+    }
+    if (rdrCreditBox) rdrCreditBox.style.display = 'none';
+    if (rdrCreditChk) rdrCreditChk.checked = false;
+  } else {
+    if (promptEl) promptEl.style.display = 'none';
+    if (riderWrap) riderWrap.style.display = 'flex';
+    if (feeInput) {
+      feeInput.disabled = false;
+      feeInput.style.opacity = '1';
+    }
+    const contactId = document.getElementById('order-input-customer')?.value;
+    const customer = contactId ? cachedContacts[contactId] : null;
+    const selectedNum = document.getElementById('order-input-selected-address-num')?.value || '1';
+    const assignedRiderId = (customer && selectedNum === '2') ? (customer.riderId2 || '') : (customer ? (customer.riderId || '') : '');
+    isRiderFeeManuallyEdited = false;
+    refreshOrderRiderOptions(assignedRiderId);
+  }
+
+  if (triggerCalc) {
+    updateOrderFormCalculations();
   }
 }
 
@@ -1581,6 +1631,7 @@ function openAddOrderModal(preselectedContactId = null) {
   document.getElementById('order-input-remark').value = '';
 
   // Reset Rider selection & fee
+  toggleOrderSelfCollect(false, false);
   isRiderFeeManuallyEdited = false;
   refreshOrderRiderOptions('');
 
@@ -1633,8 +1684,10 @@ function openEditOrderModal(orderId) {
   if (custSearchInput) custSearchInput.value = customer.name;
 
   // Setup address selection if customer has 2 addresses
-  if (customer.address && customer.address2) {
-    if (ord.address === customer.address2) {
+  if (customer.address2 && customer.address2.trim()) {
+    const cleanOrdAddr = (ord.address || '').trim();
+    const cleanAddr2 = customer.address2.trim();
+    if (cleanOrdAddr && cleanOrdAddr === cleanAddr2) {
       selectOrderDeliveryAddress(2);
     } else {
       selectOrderDeliveryAddress(1);
@@ -1690,11 +1743,16 @@ function openEditOrderModal(orderId) {
   if (qtyInput) qtyInput.value = orderMealItems.length;
 
   // 4. Rider & Delivery Fee
-  isRiderFeeManuallyEdited = false;
-  refreshOrderRiderOptions(ord.riderId || '');
-  const rdrFeeInput = document.getElementById('order-input-rider-fee');
-  if (rdrFeeInput) {
-    rdrFeeInput.value = (parseFloat(ord.riderFee) || 0).toFixed(2);
+  const isSelfCollect = ord.isSelfCollect === true || ord.riderName === 'Self Collect' || ord.riderId === 'self-collect';
+  toggleOrderSelfCollect(isSelfCollect, false);
+
+  if (!isSelfCollect) {
+    isRiderFeeManuallyEdited = false;
+    refreshOrderRiderOptions(ord.riderId || '');
+    const rdrFeeInput = document.getElementById('order-input-rider-fee');
+    if (rdrFeeInput) {
+      rdrFeeInput.value = (parseFloat(ord.riderFee) || 0).toFixed(2);
+    }
   }
 
   // Rider credit checkbox
@@ -2027,8 +2085,9 @@ async function saveOrderSubmit(event) {
   }
 
   // Rider Delivery Fee & Rider Credit Deduction
+  const isSelfCollectChecked = !!(document.getElementById('order-checkbox-self-collect')?.checked);
   const riderFeeInput = document.getElementById('order-input-rider-fee');
-  const riderFee = riderFeeInput ? (parseFloat(riderFeeInput.value) || 0) : 0;
+  const riderFee = isSelfCollectChecked ? 0 : (riderFeeInput ? (parseFloat(riderFeeInput.value) || 0) : 0);
 
   const currentRdrCredit = parseFloat(customer.creditRider) || 0;
   const useRiderCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
@@ -2091,14 +2150,19 @@ async function saveOrderSubmit(event) {
     finalRiderName = customer.riderName2 || ((customer.riderId2 && cachedContacts[customer.riderId2]) ? cachedContacts[customer.riderId2].name : '');
   }
 
-  // Check if rider is overridden in the order rider selector
-  const chosenRiderSelect = document.getElementById('order-select-rider');
-  if (chosenRiderSelect && chosenRiderSelect.value) {
-    finalRiderId = chosenRiderSelect.value;
-    finalRiderName = (cachedContacts[finalRiderId] ? cachedContacts[finalRiderId].name : '') || finalRiderName;
-  } else if (chosenRiderSelect && chosenRiderSelect.value === '') {
-    finalRiderId = '';
-    finalRiderName = '';
+  if (isSelfCollectChecked) {
+    finalRiderId = 'self-collect';
+    finalRiderName = 'Self Collect';
+  } else {
+    // Check if rider is overridden in the order rider selector
+    const chosenRiderSelect = document.getElementById('order-select-rider');
+    if (chosenRiderSelect && chosenRiderSelect.value) {
+      finalRiderId = chosenRiderSelect.value;
+      finalRiderName = (cachedContacts[finalRiderId] ? cachedContacts[finalRiderId].name : '') || finalRiderName;
+    } else if (chosenRiderSelect && chosenRiderSelect.value === '') {
+      finalRiderId = '';
+      finalRiderName = '';
+    }
   }
 
   const editingOrderId = document.getElementById('order-input-edit-id')?.value;
@@ -2173,6 +2237,7 @@ async function saveOrderSubmit(event) {
       addonPerMeal: itemsData.reduce((sum, it) => sum + it.addonPrice, 0) / (quantity || 1),
       riderFee: riderFee,
       riderFeePaidByCredit: isUseRiderCredit,
+      isSelfCollect: isSelfCollectChecked,
       date: dateStr,
       day: dayName,
       menuId: dateStr,
@@ -2289,6 +2354,7 @@ async function saveOrderSubmit(event) {
       addonPerMeal: itemsData.reduce((sum, it) => sum + it.addonPrice, 0) / (quantity || 1),
       riderFee: riderFee,
       riderFeePaidByCredit: riderFeePaidByCredit,
+      isSelfCollect: isSelfCollectChecked,
       date: dateStr,
       day: dayName,
       menuId: dateStr,
