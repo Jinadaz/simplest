@@ -5,6 +5,7 @@ let cachedMenus = {};
 let cachedContacts = {};
 let cachedOrders = {};
 let cachedCreditLogs = {};
+let cachedDebtPayments = {};
 let cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00, defaultRiderFee: 0, riderFees: {} };
 
 let dbListeners = [];
@@ -15,6 +16,7 @@ const monitoredDateRefs = {};
 const loadedMonthsSet = new Set();
 const loadedDatesSet = new Set();
 let isMigrationRunning = false;
+let allOrdersMonitored = false;
 
 /**
  * Register data change callback
@@ -29,6 +31,7 @@ function notifyDataChanged() {
     contacts: cachedContacts, 
     orders: cachedOrders,
     creditLogs: cachedCreditLogs,
+    debtPayments: cachedDebtPayments,
     pricing: cachedPricing 
   }));
 }
@@ -60,6 +63,12 @@ async function initDatabase() {
       notifyDataChanged();
     });
 
+    // 2.5. Customer Debt Payments: Load 100% full dataset
+    db.ref('debt_payments').on('value', (snapshot) => {
+      cachedDebtPayments = snapshot.val() || {};
+      notifyDataChanged();
+    });
+
     // 3. Settings / Pricing
     db.ref('settings/pricing').on('value', (snapshot) => {
       const val = snapshot.val();
@@ -87,7 +96,7 @@ async function initDatabase() {
     // 5. Orders: Load today only at startup (other days loaded on-demand)
     ensureOrdersDateLoaded(todayStr);
 
-    console.log('[DB] Realtime Database listeners active (Today Orders + Current Month Menu + All Contacts & Credits).');
+    console.log('[DB] Realtime Database listeners active (Today Orders + Current Month Menu + All Contacts & Credits & Debt Payments).');
   } else {
     // LocalStorage fallback engine
     if (isDbInitialized) return;
@@ -97,6 +106,7 @@ async function initDatabase() {
     const localContacts = localStorage.getItem('simplest_contacts');
     const localOrders = localStorage.getItem('simplest_orders');
     const localCreditLogs = localStorage.getItem('simplest_credit_logs');
+    const localDebtPayments = localStorage.getItem('simplest_debt_payments');
     const localPricing = localStorage.getItem('simplest_pricing');
 
     if (localPricing) {
@@ -125,6 +135,7 @@ async function initDatabase() {
       cachedContacts = {};
       cachedOrders = {};
       cachedCreditLogs = {};
+      cachedDebtPayments = {};
 
       await seedInitialData((path, data) => {
         if (path === 'menus') cachedMenus = data;
@@ -138,6 +149,7 @@ async function initDatabase() {
       cachedContacts = JSON.parse(localContacts || '{}');
       cachedOrders = JSON.parse(localOrders || '{}');
       cachedCreditLogs = JSON.parse(localCreditLogs || '{}');
+      cachedDebtPayments = JSON.parse(localDebtPayments || '{}');
     }
     notifyDataChanged();
   }
@@ -148,6 +160,7 @@ function saveToLocalStorage() {
   localStorage.setItem('simplest_contacts', JSON.stringify(cachedContacts));
   localStorage.setItem('simplest_orders', JSON.stringify(cachedOrders));
   localStorage.setItem('simplest_credit_logs', JSON.stringify(cachedCreditLogs));
+  localStorage.setItem('simplest_debt_payments', JSON.stringify(cachedDebtPayments));
   localStorage.setItem('simplest_pricing', JSON.stringify(cachedPricing));
   notifyDataChanged();
 }
@@ -750,3 +763,79 @@ function dbGetCreditLogsForContact(contactId) {
     .filter(log => log.contactId === contactId)
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 }
+
+// Ensure All Partitioned Orders Are Loaded (For accurate Cross-Month Debt & Order Calculations)
+function ensureAllOrdersLoaded() {
+  if (!isFirebaseLive || !db) return;
+  if (allOrdersMonitored) return;
+  allOrdersMonitored = true;
+
+  console.log('[DB] Attaching listeners for all orders nodes across all months...');
+  db.ref('orders').on('value', (snapshot) => {
+    const data = snapshot.val() || {};
+    const existingIdsInDb = new Set();
+
+    for (const [key, val] of Object.entries(data)) {
+      if (val && typeof val === 'object') {
+        if (/^\d{4}-\d{2}$/.test(key)) {
+          // Partitioned month
+          for (const [ordId, ord] of Object.entries(val)) {
+            if (ord && typeof ord === 'object') {
+              cachedOrders[ordId] = ord;
+              existingIdsInDb.add(ordId);
+            }
+          }
+        } else {
+          // Legacy flat order
+          cachedOrders[key] = val;
+          existingIdsInDb.add(key);
+        }
+      }
+    }
+
+    notifyDataChanged();
+  });
+}
+
+// Debt Payment Database Actions
+async function dbAddDebtPayment(paymentData) {
+  const paymentId = 'pay_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+  const userEmail = (typeof currentUser !== 'undefined' && currentUser && currentUser.email) ? currentUser.email : 'Admin';
+  
+  const record = {
+    paymentId,
+    createdAt: Date.now(),
+    createdBy: userEmail,
+    ...paymentData
+  };
+
+  cachedDebtPayments[paymentId] = record;
+  notifyDataChanged();
+
+  if (isFirebaseLive && db) {
+    await db.ref(`debt_payments/${paymentId}`).set(record);
+  } else {
+    saveToLocalStorage();
+  }
+  return paymentId;
+}
+
+function dbGetDebtPaymentsForContact(contactId) {
+  if (!contactId) return [];
+  return Object.values(cachedDebtPayments)
+    .filter(p => p.contactId === contactId)
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+}
+
+async function dbDeleteDebtPayment(paymentId) {
+  if (!cachedDebtPayments[paymentId]) return;
+  delete cachedDebtPayments[paymentId];
+  notifyDataChanged();
+
+  if (isFirebaseLive && db) {
+    await db.ref(`debt_payments/${paymentId}`).remove();
+  } else {
+    saveToLocalStorage();
+  }
+}
+

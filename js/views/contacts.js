@@ -3,9 +3,38 @@
 let contactSearchQuery = '';
 let editingContactId = null;
 let viewingProfileContactId = null;
+let contactActiveSubTab = 'contacts'; // 'contacts' | 'debt'
 
 function initContactsView() {
-  renderContacts();
+  if (contactActiveSubTab === 'debt') {
+    switchContactSubTab('debt');
+  } else {
+    switchContactSubTab('contacts');
+  }
+}
+
+function switchContactSubTab(subTab) {
+  contactActiveSubTab = subTab;
+  const subtabBtnContacts = document.getElementById('subtab-btn-contacts');
+  const subtabBtnDebt = document.getElementById('subtab-btn-debt');
+  const subviewList = document.getElementById('contacts-subview-list');
+  const subviewDebt = document.getElementById('contacts-subview-debt');
+
+  if (subTab === 'debt') {
+    if (subtabBtnDebt) subtabBtnDebt.classList.add('active');
+    if (subtabBtnContacts) subtabBtnContacts.classList.remove('active');
+    if (subviewDebt) subviewDebt.style.display = 'block';
+    if (subviewList) subviewList.style.display = 'none';
+    if (typeof initCustomerDebtView === 'function') {
+      initCustomerDebtView();
+    }
+  } else {
+    if (subtabBtnContacts) subtabBtnContacts.classList.add('active');
+    if (subtabBtnDebt) subtabBtnDebt.classList.remove('active');
+    if (subviewList) subviewList.style.display = 'block';
+    if (subviewDebt) subviewDebt.style.display = 'none';
+    renderContacts();
+  }
 }
 
 function handleContactSearch(query) {
@@ -198,8 +227,8 @@ function renderContacts() {
     mobileCardsHtml += `
       <div class="mobile-data-card">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
-          <div style="display: flex; align-items: center; gap: 0.35rem;">
-            <span style="font-size: 1.05rem; font-weight: 800;" onclick="openCustomerProfileModal('${contact.id}')">${contact.name}</span>
+          <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
+            <span style="font-size: 1.05rem; font-weight: 800; cursor: pointer;" onclick="openCustomerProfileModal('${contact.id}')">${contact.name}</span>
             ${nameBadge}
           </div>
           <span style="font-size: 0.8rem; font-weight: 700; color: var(--text-muted);">📞 ${contact.phone || 'No phone'}</span>
@@ -826,6 +855,29 @@ function openCustomerProfileModal(contactId) {
   document.getElementById('profile-stat-orders').textContent = totalOrders;
   document.getElementById('profile-stat-meals').textContent = totalMeals;
   document.getElementById('profile-stat-spent').textContent = formatRM(totalSpent);
+
+  // Update Customer Debt card in Profile
+  const debtCard = document.getElementById('profile-debt-summary-card');
+  if (debtCard) {
+    if (isRider) {
+      debtCard.style.display = 'none';
+    } else {
+      debtCard.style.display = 'flex';
+      const debtData = (typeof calculateCustomerDebt === 'function') ? calculateCustomerDebt(contactId) : null;
+      const totalDueEl = document.getElementById('profile-debt-total');
+      const mealDueEl = document.getElementById('profile-debt-meal');
+      const riderDueEl = document.getElementById('profile-debt-rider');
+
+      if (debtData) {
+        if (totalDueEl) {
+          totalDueEl.textContent = formatRM(debtData.totalOutstanding);
+          totalDueEl.style.color = debtData.hasDebt ? '#be123c' : '#047857';
+        }
+        if (mealDueEl) mealDueEl.textContent = formatRM(debtData.outstandingMeal);
+        if (riderDueEl) riderDueEl.textContent = formatRM(debtData.outstandingRider);
+      }
+    }
+  }
 
   // Render Order History
   const historyContainer = document.getElementById('profile-order-history');

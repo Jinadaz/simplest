@@ -232,33 +232,195 @@
         </section>
 
 
-        <!-- 3. VIEW: CONTACTS -->
+        <!-- 3. VIEW: CONTACTS & DEBT MANAGEMENT -->
         <section id="view-contacts" class="view-section">
-          <div class="toolbar-row">
-            <div class="search-box">
-              <span class="search-icon-pos">
-                <svg class="svg-icon sm" viewBox="0 0 24 24">
-                  <circle cx="11" cy="11" r="8" />
-                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
-                </svg>
-              </span>
-              <input type="text" id="contact-search-input" class="search-input"
-                placeholder="Search name, phone, address..." oninput="handleContactSearch(this.value)" />
-            </div>
-
-            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
-              <button class="btn btn-primary" onclick="openAddContactModal()">
-                <svg class="svg-icon sm" viewBox="0 0 24 24">
-                  <line x1="12" y1="5" x2="12" y2="19" />
-                  <line x1="5" y1="12" x2="19" y2="12" />
-                </svg>
-                <span>Add Contact</span>
+          <!-- Top Sub-Tab Navigation Switcher -->
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 0.75rem;">
+            <div class="ios-segmented-nav" style="max-width: 420px; margin-bottom: 0;">
+              <button type="button" class="ios-segment-btn active" id="subtab-btn-contacts" onclick="switchContactSubTab('contacts')">
+                👥 Contacts List
+              </button>
+              <button type="button" class="ios-segment-btn" id="subtab-btn-debt" onclick="switchContactSubTab('debt')">
+                💳 Customer Debt
               </button>
             </div>
           </div>
 
-          <div id="contacts-list-container">
-            <!-- Rendered dynamically by js/views/contacts.js -->
+          <!-- SUBVIEW 1: CONTACTS LIST -->
+          <div id="contacts-subview-list">
+            <div class="toolbar-row">
+              <div class="search-box">
+                <span class="search-icon-pos">
+                  <svg class="svg-icon sm" viewBox="0 0 24 24">
+                    <circle cx="11" cy="11" r="8" />
+                    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                  </svg>
+                </span>
+                <input type="text" id="contact-search-input" class="search-input"
+                  placeholder="Search name, phone, address..." oninput="handleContactSearch(this.value)" />
+              </div>
+
+              <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                <button class="btn btn-primary" onclick="openAddContactModal()">
+                  <svg class="svg-icon sm" viewBox="0 0 24 24">
+                    <line x1="12" y1="5" x2="12" y2="19" />
+                    <line x1="5" y1="12" x2="19" y2="12" />
+                  </svg>
+                  <span>Add Contact</span>
+                </button>
+              </div>
+            </div>
+
+            <div id="contacts-list-container">
+              <!-- Rendered dynamically by js/views/contacts.js -->
+            </div>
+          </div>
+
+          <!-- SUBVIEW 2: CUSTOMER DEBT MANAGEMENT -->
+          <div id="contacts-subview-debt" style="display: none;">
+            <!-- 4 Top Stat KPI Cards -->
+            <div class="debt-kpi-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+              <div class="debt-kpi-card" style="background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%); border: 1px solid #fecdd3; border-radius: var(--radius-lg); padding: 1.15rem 1.25rem; box-shadow: var(--shadow-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.76rem; font-weight: 800; color: #be123c; text-transform: uppercase; letter-spacing: 0.04em;">Total Outstanding</span>
+                  <span style="font-size: 1.35rem;">💰</span>
+                </div>
+                <div id="debt-kpi-total-outstanding" style="font-size: 1.65rem; font-weight: 800; color: #9f1239; margin-top: 0.45rem; letter-spacing: -0.02em;">
+                  RM 0.00
+                </div>
+                <div style="font-size: 0.74rem; color: #be123c; margin-top: 0.25rem; font-weight: 600;">
+                  Total unpaid balance across all customers
+                </div>
+              </div>
+
+              <div class="debt-kpi-card" style="background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%); border: 1px solid #fde68a; border-radius: var(--radius-lg); padding: 1.15rem 1.25rem; box-shadow: var(--shadow-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.76rem; font-weight: 800; color: #b45309; text-transform: uppercase; letter-spacing: 0.04em;">Meal Outstanding</span>
+                  <span style="font-size: 1.35rem;">🍱</span>
+                </div>
+                <div id="debt-kpi-meal-outstanding" style="font-size: 1.65rem; font-weight: 800; color: #92400e; margin-top: 0.45rem; letter-spacing: -0.02em;">
+                  RM 0.00
+                </div>
+                <div style="font-size: 0.74rem; color: #b45309; margin-top: 0.25rem; font-weight: 600;">
+                  Unpaid food &amp; add-on costs
+                </div>
+              </div>
+
+              <div class="debt-kpi-card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 1px solid #bae6fd; border-radius: var(--radius-lg); padding: 1.15rem 1.25rem; box-shadow: var(--shadow-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.76rem; font-weight: 800; color: #0369a1; text-transform: uppercase; letter-spacing: 0.04em;">Rider Fee Outstanding</span>
+                  <span style="font-size: 1.35rem;">🛵</span>
+                </div>
+                <div id="debt-kpi-rider-outstanding" style="font-size: 1.65rem; font-weight: 800; color: #075985; margin-top: 0.45rem; letter-spacing: -0.02em;">
+                  RM 0.00
+                </div>
+                <div style="font-size: 0.74rem; color: #0369a1; margin-top: 0.25rem; font-weight: 600;">
+                  Unpaid delivery / rider fees
+                </div>
+              </div>
+
+              <div class="debt-kpi-card" style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: var(--radius-lg); padding: 1.15rem 1.25rem; box-shadow: var(--shadow-sm);">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                  <span style="font-size: 0.76rem; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.04em;">Customers in Debt</span>
+                  <span style="font-size: 1.35rem;">👥</span>
+                </div>
+                <div id="debt-kpi-customers-count" style="font-size: 1.65rem; font-weight: 800; color: #1e293b; margin-top: 0.45rem; letter-spacing: -0.02em;">
+                  0 Customers
+                </div>
+                <div style="font-size: 0.74rem; color: #64748b; margin-top: 0.25rem; font-weight: 600;">
+                  Count of customers with balance &gt; 0
+                </div>
+              </div>
+            </div>
+
+            <!-- Debt Filters & Search Control Bar -->
+            <div class="week-selector-card" style="margin-bottom: 1rem; padding: 0.85rem 1.15rem;">
+              <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; width: 100%; justify-content: space-between;">
+                <!-- Search Box -->
+                <div class="search-box" style="flex: 1; min-width: 220px; max-width: 320px;">
+                  <span class="search-icon-pos">
+                    <svg class="svg-icon sm" viewBox="0 0 24 24">
+                      <circle cx="11" cy="11" r="8" />
+                      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                    </svg>
+                  </span>
+                  <input type="text" id="debt-search-input" class="search-input"
+                    placeholder="Search name, phone, ID..." oninput="handleDebtSearch(this.value)" />
+                </div>
+
+                <!-- Status Filter: Debt Only vs All -->
+                <div class="ios-segmented-nav" style="margin-bottom: 0;">
+                  <button type="button" class="ios-segment-btn debt-status-btn active" data-status="debt_only" onclick="setDebtStatusFilter('debt_only')">
+                    ⚠️ In Debt Only
+                  </button>
+                  <button type="button" class="ios-segment-btn debt-status-btn" data-status="all" onclick="setDebtStatusFilter('all')">
+                    All Customers
+                  </button>
+                </div>
+
+                <!-- Category Filter -->
+                <div class="ios-segmented-nav" style="margin-bottom: 0;">
+                  <button type="button" class="ios-segment-btn debt-type-btn active" data-type="all" onclick="setDebtTypeFilter('all')">
+                    All
+                  </button>
+                  <button type="button" class="ios-segment-btn debt-type-btn" data-type="meal_debt" onclick="setDebtTypeFilter('meal_debt')">
+                    🍱 Meal Due
+                  </button>
+                  <button type="button" class="ios-segment-btn debt-type-btn" data-type="rider_debt" onclick="setDebtTypeFilter('rider_debt')">
+                    🛵 Rider Due
+                  </button>
+                </div>
+
+                <!-- Date Range Filter -->
+                <div class="ios-segmented-nav" style="margin-bottom: 0;">
+                  <button type="button" class="ios-segment-btn debt-date-btn active" data-date="all" onclick="setDebtDateFilter('all')">
+                    All Time
+                  </button>
+                  <button type="button" class="ios-segment-btn debt-date-btn" data-date="this_month" onclick="setDebtDateFilter('this_month')">
+                    This Month
+                  </button>
+                  <button type="button" class="ios-segment-btn debt-date-btn" data-date="last_month" onclick="setDebtDateFilter('last_month')">
+                    Last Month
+                  </button>
+                  <button type="button" class="ios-segment-btn debt-date-btn" data-date="custom" onclick="setDebtDateFilter('custom')">
+                    Custom Range
+                  </button>
+                </div>
+
+                <!-- Sort Dropdown -->
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                  <span style="font-size: 0.775rem; font-weight: 700; color: var(--text-muted);">Sort:</span>
+                  <select id="debt-sort-select" onchange="handleDebtSortChange(this.value)" class="form-control" style="padding: 0.35rem 0.65rem; font-size: 0.8rem; width: auto; font-weight: 600;">
+                    <option value="debt_desc">Highest Debt First</option>
+                    <option value="debt_asc">Lowest Debt First</option>
+                    <option value="meal_desc">Highest Meal Debt</option>
+                    <option value="rider_desc">Highest Rider Debt</option>
+                    <option value="name_asc">Name (A-Z)</option>
+                  </select>
+                </div>
+              </div>
+
+              <!-- Custom Date Range Sub-Bar -->
+              <div id="debt-custom-date-box" style="display: none; align-items: center; gap: 0.75rem; margin-top: 0.75rem; padding-top: 0.65rem; border-top: 1px dashed var(--border-light); width: 100%; flex-wrap: wrap;">
+                <span style="font-size: 0.78rem; font-weight: 700; color: var(--text-main);">📅 Order Date Range:</span>
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">From:</span>
+                  <input type="date" id="debt-input-start-date" class="form-control" style="padding: 0.3rem 0.5rem; font-size: 0.78rem; width: auto;" onchange="handleDebtCustomDateChange()" />
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                  <span style="font-size: 0.75rem; color: var(--text-muted);">To:</span>
+                  <input type="date" id="debt-input-end-date" class="form-control" style="padding: 0.3rem 0.5rem; font-size: 0.78rem; width: auto;" onchange="handleDebtCustomDateChange()" />
+                </div>
+                <button type="button" class="btn btn-sm btn-outline" onclick="debtCustomStartDate=''; debtCustomEndDate=''; document.getElementById('debt-input-start-date').value=''; document.getElementById('debt-input-end-date').value=''; handleDebtCustomDateChange();" style="font-size: 0.74rem; padding: 0.25rem 0.55rem;">
+                  Clear Date Filter
+                </button>
+              </div>
+            </div>
+
+            <!-- Debt Table & Responsive Cards Container -->
+            <div id="debt-table-container">
+              <!-- Rendered dynamically by js/views/debt.js -->
+            </div>
           </div>
         </section>
 
@@ -1086,6 +1248,36 @@
           </div>
         </div>
 
+        <!-- Customer Debt Status Card in Profile -->
+        <div id="profile-debt-summary-card"
+          style="background: linear-gradient(135deg, #fff1f2 0%, #fff5f5 100%); border: 1px solid #fecdd3; border-radius: var(--radius-md); padding: 0.75rem 0.85rem; margin-top: 0.65rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem;">
+          <div style="display: flex; align-items: center; gap: 0.65rem;">
+            <div style="font-size: 1.35rem;">⚠️</div>
+            <div>
+              <div
+                style="font-size: 0.725rem; font-weight: 800; color: #be123c; text-transform: uppercase; letter-spacing: 0.03em;">
+                Outstanding Debt Balance</div>
+              <div
+                style="display: flex; gap: 0.75rem; margin-top: 0.15rem; font-size: 0.85rem; font-weight: 700; flex-wrap: wrap;">
+                <span style="color: #9f1239;">Total Due: <strong id="profile-debt-total"
+                    style="font-size: 1rem; color: #be123c;">RM 0.00</strong></span>
+                <span style="color: #92400e; font-size: 0.8rem;">🍱 Meal: <span id="profile-debt-meal">RM 0.00</span></span>
+                <span style="color: #0369a1; font-size: 0.8rem;">🛵 Rider: <span id="profile-debt-rider">RM 0.00</span></span>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 0.4rem;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="closeCustomerProfileModal(); openCustomerDebtHistoryModal(viewingProfileContactId);"
+              style="border-color: #cbd5e1; color: var(--text-main); font-weight: 700; background: #ffffff;">
+              📜 History
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="closeCustomerProfileModal(); openRecordRepaymentModal(viewingProfileContactId);"
+              style="background: #059669; border-color: #059669; font-weight: 800;">
+              💳 Repay
+            </button>
+          </div>
+        </div>
+
         <!-- Tabs for Order History vs Credit History -->
         <div
           style="display: flex; border-bottom: 2px solid var(--border-color); margin-top: 1rem; margin-bottom: 0.5rem; gap: 1rem;">
@@ -1477,6 +1669,211 @@
     </div>
   </div>
 
+  <!-- 7. CUSTOMER DEBT REPAYMENT MODAL -->
+  <div id="debt-repayment-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="modal-header">
+        <h3 class="modal-title">💳 Record Customer Repayment</h3>
+        <button type="button" class="modal-close" onclick="closeRecordRepaymentModal()">✕</button>
+      </div>
+      <form onsubmit="submitRecordRepayment(event)">
+        <div class="modal-body">
+          <!-- Customer Info & Current Outstanding Balance Bar -->
+          <div style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 0.75rem 0.9rem; margin-bottom: 1rem;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 0.5rem;">
+              <div>
+                <div style="font-size: 1rem; font-weight: 800; color: var(--text-main);" id="repay-customer-name">--</div>
+                <div style="font-size: 0.76rem; color: var(--text-muted); margin-top: 2px;">
+                  📞 <span id="repay-customer-phone">--</span> • ID: <span id="repay-customer-id" style="font-family: monospace;">--</span>
+                </div>
+              </div>
+              <div style="text-align: right;">
+                <div style="font-size: 0.7rem; font-weight: 700; color: #be123c; text-transform: uppercase;">Total Due</div>
+                <div style="font-size: 1.15rem; font-weight: 800; color: #be123c;" id="repay-bal-total">RM 0.00</div>
+              </div>
+            </div>
+
+            <!-- Current Balances Breakdown -->
+            <div style="display: flex; gap: 0.85rem; margin-top: 0.55rem; padding-top: 0.5rem; border-top: 1px dashed var(--border-color); font-size: 0.8rem; flex-wrap: wrap;">
+              <span style="color: #92400e;">🍱 Meal Balance: <strong id="repay-bal-meal">RM 0.00</strong></span>
+              <span style="color: #0369a1;">🛵 Rider Balance: <strong id="repay-bal-rider">RM 0.00</strong></span>
+            </div>
+          </div>
+
+          <!-- Repayment Type Switcher -->
+          <div class="form-group">
+            <label class="form-label" style="font-weight: 700;">Repayment Type *</label>
+            <div class="ios-segmented-nav" style="width: 100%; margin-bottom: 0.35rem;">
+              <button type="button" class="ios-segment-btn" id="repay-type-btn-meal" onclick="setRepaymentType('meal')">
+                🍱 Meal Only
+              </button>
+              <button type="button" class="ios-segment-btn" id="repay-type-btn-rider" onclick="setRepaymentType('rider')">
+                🛵 Rider Fee Only
+              </button>
+              <button type="button" class="ios-segment-btn active" id="repay-type-btn-combined" onclick="setRepaymentType('combined')">
+                🍱+🛵 Combined
+              </button>
+            </div>
+            <input type="hidden" id="repay-input-type" value="combined" />
+          </div>
+
+          <!-- Meal Repayment Amount Input Group -->
+          <div id="repay-group-meal" class="form-group" style="margin-bottom: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label class="form-label" style="margin-bottom: 0;">🍱 Meal Amount to Pay (RM) *</label>
+              <button type="button" class="btn btn-sm btn-outline" onclick="quickFillRepayment('meal')" style="font-size: 0.725rem; padding: 0.15rem 0.5rem;">
+                Pay Full Meal
+              </button>
+            </div>
+            <input type="number" step="0.01" min="0" id="repay-input-meal-amount" class="form-control" placeholder="0.00" oninput="updateRepaymentTotalSummary()" />
+          </div>
+
+          <!-- Rider Fee Repayment Amount Input Group -->
+          <div id="repay-group-rider" class="form-group" style="margin-bottom: 0.85rem;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+              <label class="form-label" style="margin-bottom: 0;">🛵 Rider Fee Amount to Pay (RM) *</label>
+              <button type="button" class="btn btn-sm btn-outline" onclick="quickFillRepayment('rider')" style="font-size: 0.725rem; padding: 0.15rem 0.5rem;">
+                Pay Full Rider
+              </button>
+            </div>
+            <input type="number" step="0.01" min="0" id="repay-input-rider-amount" class="form-control" placeholder="0.00" oninput="updateRepaymentTotalSummary()" />
+          </div>
+
+          <!-- Quick Fill Combined Button -->
+          <div style="display: flex; justify-content: flex-end; margin-bottom: 0.75rem;">
+            <button type="button" class="btn btn-sm btn-outline" onclick="quickFillRepayment('both')" style="font-size: 0.75rem; color: var(--primary-dark); font-weight: 700;">
+              ⚡ Fill Full Outstanding Balance
+            </button>
+          </div>
+
+          <!-- Total Repayment Preview Summary Banner -->
+          <div style="background: linear-gradient(135deg, #ecfdf5 0%, #f0fdf4 100%); border: 1px solid #a7f3d0; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 0.85rem; font-weight: 700; color: #047857;">Total Payment to Record:</span>
+            <span style="font-size: 1.25rem; font-weight: 800; color: #047857;" id="repay-summary-total">RM 0.00</span>
+          </div>
+
+          <!-- Payment Date & Method -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.85rem;">
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Payment Date *</label>
+              <input type="date" id="repay-input-date" class="form-control" required />
+            </div>
+            <div class="form-group" style="margin-bottom: 0;">
+              <label class="form-label">Payment Method *</label>
+              <select id="repay-input-method" class="form-control" required>
+                <option value="Bank Transfer">Bank Transfer (Maybank / CIMB / Public)</option>
+                <option value="DuitNow QR">DuitNow QR</option>
+                <option value="Touch 'n Go eWallet">Touch 'n Go eWallet</option>
+                <option value="Cash">Cash (现金)</option>
+                <option value="Credit Card">Credit / Debit Card</option>
+                <option value="Cheque">Cheque</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Remark / Reference -->
+          <div class="form-group" style="margin-bottom: 0.85rem;">
+            <label class="form-label">Remark / Payment Reference Note</label>
+            <input type="text" id="repay-input-remark" class="form-control" placeholder="e.g. Maybank ref 987654, TNG receipt screenshot verified..." />
+          </div>
+
+          <!-- Operator Info -->
+          <div style="font-size: 0.74rem; color: var(--text-muted); background: var(--bg-main); padding: 0.4rem 0.65rem; border-radius: 5px;">
+            👤 Operator: <strong id="repay-admin-display" style="color: var(--text-main);">Admin</strong>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline" onclick="closeRecordRepaymentModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-repayment" style="font-weight: 800; background: #059669; border-color: #059669;">
+            Save Repayment
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- 8. CUSTOMER DEBT & ORDER HISTORY MODAL -->
+  <div id="customer-debt-history-modal" class="modal-overlay">
+    <div class="modal-card" style="max-width: 680px;">
+      <div class="modal-header">
+        <h3 class="modal-title">📜 Customer Debt &amp; Order History</h3>
+        <button type="button" class="modal-close" onclick="closeCustomerDebtHistoryModal()">✕</button>
+      </div>
+      <div class="modal-body">
+        <!-- Customer Top Info Banner -->
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px dashed var(--border-color); padding-bottom: 0.85rem; flex-wrap: wrap; gap: 0.5rem;">
+          <div>
+            <h2 id="history-modal-customer-name" style="font-size: 1.2rem; font-weight: 800; color: var(--text-main);">Customer Name</h2>
+            <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">
+              📞 <span id="history-modal-customer-phone">--</span> • 📍 <span id="history-modal-customer-address">--</span>
+            </div>
+          </div>
+          <div>
+            <button type="button" class="btn btn-primary btn-sm" id="history-btn-quick-repay" style="background: #059669; border-color: #059669; font-weight: 800;">
+              💳 Record Payment
+            </button>
+          </div>
+        </div>
+
+        <!-- 3-Box Financial Breakdown -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.65rem; margin-top: 0.85rem;">
+          <!-- Meal -->
+          <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.65rem;">
+            <div style="font-size: 0.7rem; font-weight: 800; color: #b45309; text-transform: uppercase;">🍱 MEAL TOTAL</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Cost: <span id="history-stat-meal-cost">RM 0.00</span></div>
+            <div style="font-size: 0.78rem; color: #059669; font-weight: 600;">Paid: <span id="history-stat-meal-paid">RM 0.00</span></div>
+            <div style="font-size: 0.95rem; font-weight: 800; color: #92400e; margin-top: 2px;">Due: <span id="history-stat-meal-due">RM 0.00</span></div>
+          </div>
+
+          <!-- Rider -->
+          <div style="background: #f8fafc; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0.65rem;">
+            <div style="font-size: 0.7rem; font-weight: 800; color: #0369a1; text-transform: uppercase;">🛵 RIDER TOTAL</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Cost: <span id="history-stat-rider-cost">RM 0.00</span></div>
+            <div style="font-size: 0.78rem; color: #059669; font-weight: 600;">Paid: <span id="history-stat-rider-paid">RM 0.00</span></div>
+            <div style="font-size: 0.95rem; font-weight: 800; color: #075985; margin-top: 2px;">Due: <span id="history-stat-rider-due">RM 0.00</span></div>
+          </div>
+
+          <!-- Total Balance -->
+          <div style="background: #fff1f2; border: 1px solid #fecdd3; border-radius: var(--radius-md); padding: 0.65rem;">
+            <div style="font-size: 0.7rem; font-weight: 800; color: #be123c; text-transform: uppercase;">💰 NET OUTSTANDING</div>
+            <div style="font-size: 0.78rem; color: var(--text-muted); margin-top: 2px;">Cost: <span id="history-stat-total-cost">RM 0.00</span></div>
+            <div style="font-size: 0.78rem; color: #059669; font-weight: 600;">Paid: <span id="history-stat-total-paid">RM 0.00</span></div>
+            <div style="font-size: 1.05rem; font-weight: 800; color: #be123c; margin-top: 2px;">Due: <span id="history-stat-total-due">RM 0.00</span></div>
+          </div>
+        </div>
+
+        <!-- Segmented Tab Nav: Orders vs Repayments -->
+        <div style="display: flex; border-bottom: 2px solid var(--border-color); margin-top: 1rem; margin-bottom: 0.65rem; gap: 1rem;">
+          <button id="history-tab-btn-orders" type="button" onclick="switchDebtHistoryTab('orders')"
+            style="background: none; border: none; padding: 0.4rem 0.2rem; font-size: 0.875rem; font-weight: 800; color: var(--primary-dark); border-bottom: 2px solid var(--primary-dark); cursor: pointer; margin-bottom: -2px;">
+            📦 Orders Breakdown
+          </button>
+          <button id="history-tab-btn-payments" type="button" onclick="switchDebtHistoryTab('payments')"
+            style="background: none; border: none; padding: 0.4rem 0.2rem; font-size: 0.875rem; font-weight: 700; color: var(--text-muted); cursor: pointer; margin-bottom: -2px;">
+            💳 Repayment History
+          </button>
+        </div>
+
+        <!-- Tab 1: Orders List -->
+        <div id="history-tab-pane-orders" style="max-height: 380px; overflow-y: auto;">
+          <div id="history-orders-list"></div>
+        </div>
+
+        <!-- Tab 2: Payments List -->
+        <div id="history-tab-pane-payments" style="max-height: 380px; overflow-y: auto; display: none;">
+          <div id="history-payments-list"></div>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeCustomerDebtHistoryModal()">Close</button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
   <script src="js/exceljs.min.js"></script>
   <script src="js/utils/excelExporter.js"></script>
@@ -1490,6 +1887,7 @@
 
   <script src="js/views/dashboard.js"></script>
   <script src="js/views/menu.js"></script>
+  <script src="js/views/debt.js"></script>
   <script src="js/views/contacts.js"></script>
   <script src="js/views/orders.js"></script>
   <script src="js/views/kitchen.js"></script>

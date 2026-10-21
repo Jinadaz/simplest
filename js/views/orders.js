@@ -718,12 +718,94 @@ async function togglePaymentStatusAction(orderId, currentStatus) {
   if (typeof renderDashboard === 'function') renderDashboard();
 }
 
+/**
+ * Calculate credits (Meal & Rider) consumed by an order
+ */
+function getOrderUsedCredits(ord) {
+  if (!ord) return { stdUsed: 0, smlUsed: 0, riderUsed: 0 };
+
+  let stdUsed = 0;
+  let smlUsed = 0;
+  let riderUsed = 0;
+
+  if (ord.mealCreditStandardUsed !== undefined || ord.mealCreditSmallUsed !== undefined) {
+    stdUsed = parseInt(ord.mealCreditStandardUsed) || 0;
+    smlUsed = parseInt(ord.mealCreditSmallUsed) || 0;
+  } else if (ord.items && Array.isArray(ord.items) && ord.items.length > 0) {
+    ord.items.forEach(it => {
+      if (it.isPackage) {
+        if (it.portion === 'Small') smlUsed++;
+        else stdUsed++;
+      }
+    });
+  } else {
+    const wasPackage = (ord.paymentStatus === 'Package') ||
+      (ord.remark && ord.remark.includes('Meal Credit')) ||
+      (ord.foodAmount === 0 && ord.foodUnitPrice === 0);
+    if (wasPackage) {
+      const qty = parseInt(ord.quantity) || 1;
+      if (ord.portion === 'Small') smlUsed = qty;
+      else stdUsed = qty;
+    }
+  }
+
+  if (ord.riderCreditUsed !== undefined) {
+    riderUsed = parseFloat(ord.riderCreditUsed) || 0;
+  } else if (ord.riderFeePaidByCredit) {
+    riderUsed = parseFloat(ord.riderFee) || 0;
+  }
+
+  return { stdUsed, smlUsed, riderUsed };
+}
+
 async function deleteOrderAction(orderId) {
   const confirmed = await showMaterialConfirm('Delete Order', 'Are you sure you want to delete this order? This action cannot be undone.', 'Delete', true);
   if (confirmed) {
+    const ord = cachedOrders[orderId];
+    if (ord && ord.contactId && cachedContacts[ord.contactId]) {
+      const cust = cachedContacts[ord.contactId];
+      const used = getOrderUsedCredits(ord);
+      if (used.stdUsed > 0 || used.smlUsed > 0 || used.riderUsed > 0) {
+        const curStd = parseInt(cust.creditStandard) || 0;
+        const curSml = parseInt(cust.creditSmall) || 0;
+        const curRdr = parseFloat(cust.creditRider) || 0;
+        const newStd = curStd + used.stdUsed;
+        const newSml = curSml + used.smlUsed;
+        const newRdr = curRdr + used.riderUsed;
+
+        await dbUpdateContact(ord.contactId, {
+          creditStandard: newStd,
+          creditSmall: newSml,
+          creditRider: newRdr
+        });
+
+        if (typeof dbAddCreditLog === 'function') {
+          const parts = [];
+          if (used.stdUsed > 0) parts.push(`${used.stdUsed} Std Meal`);
+          if (used.smlUsed > 0) parts.push(`${used.smlUsed} Small Meal`);
+          if (used.riderUsed > 0) parts.push(`RM ${used.riderUsed.toFixed(2)} Rider`);
+          await dbAddCreditLog({
+            contactId: ord.contactId,
+            customerName: cust.name,
+            type: 'refund',
+            action: 'Order Deleted Refund',
+            deltaStandard: used.stdUsed,
+            deltaSmall: used.smlUsed,
+            deltaRider: used.riderUsed,
+            newStandard: newStd,
+            newSmall: newSml,
+            newRider: newRdr,
+            remark: `Refunded for deleted order #${(orderId || '').slice(-6)} (${parts.join(', ')})`
+          });
+        }
+      }
+    }
+
     await dbDeleteOrder(orderId);
     renderOrders();
+    if (typeof renderContacts === 'function') renderContacts();
     if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderKitchen === 'function') renderKitchen();
     showMaterialToast('Order deleted successfully', 'info');
   }
 }
@@ -1051,11 +1133,22 @@ function selectOrderCustomer(customer) {
   document.getElementById('order-input-customer-search').value = `${customer.name} (${customer.phone || ''})`;
   document.getElementById('order-customer-dropdown').style.display = 'none';
 
+  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
+  const editingOrd = (editingOrderId && cachedOrders[editingOrderId] && customer && cachedOrders[editingOrderId].contactId === customer.id)
+    ? cachedOrders[editingOrderId]
+    : null;
+  const editingCredits = getOrderUsedCredits(editingOrd);
+
   const stdC = parseInt(customer.creditStandard) || 0;
   const smlC = parseInt(customer.creditSmall) || 0;
   const rdrC = parseFloat(customer.creditRider) || 0;
+
+  const stdAvail = stdC + editingCredits.stdUsed;
+  const smlAvail = smlC + editingCredits.smlUsed;
+  const rdrAvail = rdrC + editingCredits.riderUsed;
+
   const currentPortion = selectedOrderPortion || 'Standard';
-  const hasCreditForPortion = checkCustomerHasCreditForPortion(customer, currentPortion);
+  const hasCreditForPortion = checkCustomerHasCreditForPortion(customer, currentPortion) || (currentPortion === 'Small' ? smlAvail > 0 : stdAvail > 0);
 
   setPackagePaymentOptionEnabled(hasCreditForPortion);
 
@@ -1063,10 +1156,22 @@ function selectOrderCustomer(customer) {
   if (infoBadge) {
     infoBadge.style.display = 'block';
     let credText = '';
-    if (stdC > 0 || smlC > 0 || rdrC > 0) {
+    if (stdAvail > 0 || smlAvail > 0 || rdrAvail > 0) {
       const parts = [];
-      if (stdC > 0 || smlC > 0) parts.push(`💳 ${stdC} Std, ${smlC} Sml`);
-      if (rdrC > 0) parts.push(`🛵 RM ${rdrC.toFixed(2)} Rider`);
+      if (stdAvail > 0 || smlAvail > 0) {
+        if (editingCredits.stdUsed > 0 || editingCredits.smlUsed > 0) {
+          parts.push(`💳 ${stdC} Std, ${smlC} Sml (${editingCredits.stdUsed + editingCredits.smlUsed} in order)`);
+        } else {
+          parts.push(`💳 ${stdC} Std, ${smlC} Sml`);
+        }
+      }
+      if (rdrAvail > 0) {
+        if (editingCredits.riderUsed > 0) {
+          parts.push(`🛵 RM ${rdrC.toFixed(2)} Rider (${formatRM(editingCredits.riderUsed)} in order)`);
+        } else {
+          parts.push(`🛵 RM ${rdrC.toFixed(2)} Rider`);
+        }
+      }
       credText = ` • <span style="color:#047857; font-weight:800; background:#dcfce7; padding:2px 6px; border-radius:4px;">${parts.join(' • ')}</span>`;
     } else {
       credText = ` • <span style="color:#64748b; font-size:0.75rem;">(No Credit Balance)</span>`;
@@ -1079,10 +1184,23 @@ function selectOrderCustomer(customer) {
   const mealCreditAvail = document.getElementById('order-meal-credit-available');
   const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
   if (mealCreditBox && mealCreditAvail && mealCreditCheckbox) {
-    if (stdC > 0 || smlC > 0) {
+    if (stdAvail > 0 || smlAvail > 0) {
       mealCreditBox.style.display = 'block';
-      mealCreditAvail.textContent = `Bal: ${stdC} Std, ${smlC} Sml`;
-      mealCreditCheckbox.checked = true;
+      if (editingCredits.stdUsed > 0 || editingCredits.smlUsed > 0) {
+        mealCreditAvail.textContent = `Bal: ${stdC} Std, ${smlC} Sml (${editingCredits.stdUsed} Std, ${editingCredits.smlUsed} Sml in order)`;
+      } else {
+        mealCreditAvail.textContent = `Bal: ${stdC} Std, ${smlC} Sml`;
+      }
+      if (editingOrd) {
+        const wasPackage = (editingOrd.paymentStatus === 'Package') ||
+          (editingOrd.remark && editingOrd.remark.includes('Meal Credit')) ||
+          (editingOrd.items && editingOrd.items.some(it => it.isPackage)) ||
+          (parseInt(editingOrd.mealCreditStandardUsed) > 0 || parseInt(editingOrd.mealCreditSmallUsed) > 0) ||
+          (editingOrd.foodAmount === 0 && editingOrd.foodUnitPrice === 0);
+        mealCreditCheckbox.checked = wasPackage;
+      } else {
+        mealCreditCheckbox.checked = true;
+      }
     } else {
       mealCreditBox.style.display = 'none';
       mealCreditCheckbox.checked = false;
@@ -1094,10 +1212,18 @@ function selectOrderCustomer(customer) {
   const rdrCreditAvail = document.getElementById('order-rider-credit-available');
   const rdrCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
   if (rdrCreditBox && rdrCreditAvail && rdrCreditCheckbox) {
-    if (rdrC > 0) {
+    if (rdrAvail > 0) {
       rdrCreditBox.style.display = 'block';
-      rdrCreditAvail.textContent = `Bal: RM ${rdrC.toFixed(2)}`;
-      rdrCreditCheckbox.checked = true; // Auto-check if customer has rider credit!
+      if (editingCredits.riderUsed > 0) {
+        rdrCreditAvail.textContent = `Bal: RM ${rdrC.toFixed(2)} (${formatRM(editingCredits.riderUsed)} in order)`;
+      } else {
+        rdrCreditAvail.textContent = `Bal: RM ${rdrC.toFixed(2)}`;
+      }
+      if (editingOrd) {
+        rdrCreditCheckbox.checked = !!editingOrd.riderFeePaidByCredit || editingCredits.riderUsed > 0;
+      } else {
+        rdrCreditCheckbox.checked = true; // Auto-check if customer has rider credit!
+      }
     } else {
       rdrCreditBox.style.display = 'none';
       rdrCreditCheckbox.checked = false;
@@ -1208,9 +1334,15 @@ function renderOrderMealItems() {
   const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
   const isUseMealCredit = !!(customer && mealCreditCheckbox && mealCreditCheckbox.checked);
 
-  // Available customer credits
-  let stdAvail = parseInt(customer?.creditStandard) || 0;
-  let smlAvail = parseInt(customer?.creditSmall) || 0;
+  // Available customer credits (including credits already allocated to this order being edited)
+  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
+  const editingOrd = (editingOrderId && cachedOrders[editingOrderId] && customer && cachedOrders[editingOrderId].contactId === customer.id)
+    ? cachedOrders[editingOrderId]
+    : null;
+  const editingCredits = getOrderUsedCredits(editingOrd);
+
+  let stdAvail = (parseInt(customer?.creditStandard) || 0) + editingCredits.stdUsed;
+  let smlAvail = (parseInt(customer?.creditSmall) || 0) + editingCredits.smlUsed;
 
   const countBadge = document.getElementById('order-lbl-meals-count');
   if (countBadge) {
@@ -1757,18 +1889,28 @@ function openEditOrderModal(orderId) {
 
   // Rider credit checkbox
   const rdrCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
+  const rdrCreditBox = document.getElementById('order-rider-credit-box');
+  const wasRiderCredit = !!ord.riderFeePaidByCredit || (parseFloat(ord.riderCreditUsed) > 0);
   if (rdrCreditCheckbox) {
-    rdrCreditCheckbox.checked = !!ord.riderFeePaidByCredit;
+    rdrCreditCheckbox.checked = wasRiderCredit;
+  }
+  if (wasRiderCredit && rdrCreditBox) {
+    rdrCreditBox.style.display = 'block';
   }
 
   // 5. Meal Package credit checkbox
   const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
+  const mealCreditBox = document.getElementById('order-meal-credit-box');
+  const wasPackage = (ord.paymentStatus === 'Package') ||
+    (ord.remark && ord.remark.includes('Meal Credit')) ||
+    (ord.items && ord.items.some(it => it.isPackage)) ||
+    (parseInt(ord.mealCreditStandardUsed) > 0 || parseInt(ord.mealCreditSmallUsed) > 0) ||
+    (ord.foodAmount === 0 && ord.foodUnitPrice === 0);
   if (mealCreditCheckbox) {
-    const wasPackage = (ord.paymentStatus === 'Package') ||
-      (ord.remark && ord.remark.includes('Meal Credit')) ||
-      (ord.items && ord.items.some(it => it.isPackage)) ||
-      (ord.foodAmount === 0 && ord.foodUnitPrice === 0);
     mealCreditCheckbox.checked = wasPackage;
+  }
+  if (wasPackage && mealCreditBox) {
+    mealCreditBox.style.display = 'block';
   }
 
   // 6. Remark
@@ -1797,6 +1939,8 @@ function openAddOrderForCustomer(contactId) {
 }
 
 function closeAddOrderModal() {
+  const editIdInput = document.getElementById('order-input-edit-id');
+  if (editIdInput) editIdInput.value = '';
   document.getElementById('add-order-modal').classList.remove('active');
 }
 
@@ -1817,9 +1961,15 @@ function updateOrderFormCalculations() {
 
   const pricing = dbGetPricing();
 
-  // Customer meal credits
-  let curStdCredit = customer ? (parseInt(customer.creditStandard) || 0) : 0;
-  let curSmlCredit = customer ? (parseInt(customer.creditSmall) || 0) : 0;
+  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
+  const editingOrd = (editingOrderId && cachedOrders[editingOrderId] && customer && cachedOrders[editingOrderId].contactId === customer.id)
+    ? cachedOrders[editingOrderId]
+    : null;
+  const editingCredits = getOrderUsedCredits(editingOrd);
+
+  // Customer meal credits (including credits already allocated to this order being edited)
+  let curStdCredit = (customer ? (parseInt(customer.creditStandard) || 0) : 0) + editingCredits.stdUsed;
+  let curSmlCredit = (customer ? (parseInt(customer.creditSmall) || 0) : 0) + editingCredits.smlUsed;
 
   // Addons total per delivery day (sum over orderMealItems)
   let dayAddonsTotal = 0;
@@ -1861,7 +2011,7 @@ function updateOrderFormCalculations() {
   const riderFee = riderFeeInput ? (parseFloat(riderFeeInput.value) || 0) : 0;
   const totalRiderFee = riderFee * datesCount;
 
-  const currentRdrCredit = customer ? (parseFloat(customer.creditRider) || 0) : 0;
+  const currentRdrCredit = (customer ? (parseFloat(customer.creditRider) || 0) : 0) + editingCredits.riderUsed;
   const useRiderCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
   const isUseRiderCredit = !!(customer && useRiderCreditCheckbox && useRiderCreditCheckbox.checked && currentRdrCredit > 0);
 
@@ -1933,7 +2083,7 @@ function updateOrderFormCalculations() {
   if (titleEl) {
     const portionsSummary = orderMealItems.map(m => m.portion === 'Small' ? 'Small' : 'Standard').join('+');
     if (datesArr.length === 0) {
-      titleEl.textContent = 'Please select meal date(s)';
+      titleEl.innerHTML = '<span style="color: #e11d48; font-weight: 800;">⚠️ Please select meal date(s)</span>';
     } else if (datesArr.length === 1) {
       const menuObj = dbGetMenuByDate(datesArr[0]);
       const dayName = getDayNameFromDateStr(datesArr[0]);
@@ -1965,7 +2115,7 @@ function updateOrderFormCalculations() {
     }
 
     if (datesCount === 0) {
-      totalEl.textContent = 'RM 0.00';
+      totalEl.textContent = 'RM 0.00 (No meal selected)';
     } else if (notes.length > 0) {
       totalEl.textContent = `${formatRM(total)} (${notes.join(' • ')})`;
     } else {
@@ -2018,30 +2168,336 @@ async function saveOrderSubmit(event) {
 
   const selectedDates = Array.from(selectedOrderDates);
   if (selectedDates.length === 0) {
-    const fallbackDays = getWeekDays(orderModalWeekOffset || 0);
-    if (fallbackDays && fallbackDays.length > 0) {
-      selectedDates.push(fallbackDays[0].dateStr);
-    } else {
-      showMaterialToast('Please select at least one meal date card', 'warning');
-      return;
+    showMaterialToast('请选择送餐日期 / 餐点 (Please select at least one meal date card)', 'warning');
+    const grid = document.getElementById('order-date-cards-grid');
+    if (grid) {
+      grid.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      grid.style.outline = '2px solid #ef4444';
+      grid.style.borderRadius = '8px';
+      setTimeout(() => { grid.style.outline = ''; }, 2500);
     }
+    return;
+  }
+
+  if (!orderMealItems || orderMealItems.length === 0) {
+    showMaterialToast('请至少添加一份餐点 (Please add at least one meal)', 'warning');
+    return;
   }
 
   const totalMealsToOrder = selectedDates.length * quantity;
 
-  // Check customer's Meal Credit for each portion
-  let currentStdCredit = parseInt(customer.creditStandard) || 0;
-  let currentSmlCredit = parseInt(customer.creditSmall) || 0;
+  // Determine delivery address and assigned rider (supports Address 1 vs Address 2)
+  const isSelfCollectChecked = !!(document.getElementById('order-checkbox-self-collect')?.checked);
+  const riderFeeInput = document.getElementById('order-input-rider-fee');
+  const riderFee = isSelfCollectChecked ? 0 : (riderFeeInput ? (parseFloat(riderFeeInput.value) || 0) : 0);
+
+  let finalAddress = (customer.address || '').trim();
+  let finalRiderId = customer.riderId || '';
+  let finalRiderName = customer.riderName || ((customer.riderId && cachedContacts[customer.riderId]) ? cachedContacts[customer.riderId].name : '');
+
+  const hasTwoAddresses = customer.address && customer.address2 && customer.address2.trim();
+  if (hasTwoAddresses) {
+    const selectedNum = document.getElementById('order-input-selected-address-num') ? document.getElementById('order-input-selected-address-num').value : '1';
+    if (selectedNum === '2') {
+      finalAddress = customer.address2.trim();
+      finalRiderId = customer.riderId2 || '';
+      finalRiderName = customer.riderName2 || ((customer.riderId2 && cachedContacts[customer.riderId2]) ? cachedContacts[customer.riderId2].name : '');
+    } else {
+      finalAddress = customer.address ? customer.address.trim() : '';
+      finalRiderId = customer.riderId || '';
+      finalRiderName = customer.riderName || ((customer.riderId && cachedContacts[customer.riderId]) ? cachedContacts[customer.riderId].name : '');
+    }
+  } else if (!finalAddress && customer.address2) {
+    finalAddress = customer.address2.trim();
+    finalRiderId = customer.riderId2 || '';
+    finalRiderName = customer.riderName2 || ((customer.riderId2 && cachedContacts[customer.riderId2]) ? cachedContacts[customer.riderId2].name : '');
+  }
+
+  if (isSelfCollectChecked) {
+    finalRiderId = 'self-collect';
+    finalRiderName = 'Self Collect';
+  } else {
+    // Check if rider is overridden in the order rider selector
+    const chosenRiderSelect = document.getElementById('order-select-rider');
+    if (chosenRiderSelect && chosenRiderSelect.value) {
+      finalRiderId = chosenRiderSelect.value;
+      finalRiderName = (cachedContacts[finalRiderId] ? cachedContacts[finalRiderId].name : '') || finalRiderName;
+    } else if (chosenRiderSelect && chosenRiderSelect.value === '') {
+      finalRiderId = '';
+      finalRiderName = '';
+    }
+  }
 
   const mealCreditCheckbox = document.getElementById('order-checkbox-use-meal-credit');
   const isUseMealCredit = !!(mealCreditCheckbox && mealCreditCheckbox.checked);
+
+  const useRiderCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
+  const isUseRiderCredit = !!(useRiderCreditCheckbox && useRiderCreditCheckbox.checked);
+
+  const pricing = dbGetPricing();
+  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
+
+  // ==========================================
+  // CASE A: EDITING AN EXISTING ORDER
+  // ==========================================
+  if (editingOrderId && cachedOrders[editingOrderId]) {
+    const existingOrd = cachedOrders[editingOrderId];
+    const prevCustId = existingOrd.contactId;
+    let prevCredits = getOrderUsedCredits(existingOrd);
+
+    // If customer was changed during edit, refund previous customer's credits
+    if (prevCustId && prevCustId !== contactId) {
+      const prevCust = cachedContacts[prevCustId];
+      if (prevCust && (prevCredits.stdUsed > 0 || prevCredits.smlUsed > 0 || prevCredits.riderUsed > 0)) {
+        const pStd = (parseInt(prevCust.creditStandard) || 0) + prevCredits.stdUsed;
+        const pSml = (parseInt(prevCust.creditSmall) || 0) + prevCredits.smlUsed;
+        const pRdr = (parseFloat(prevCust.creditRider) || 0) + prevCredits.riderUsed;
+        await dbUpdateContact(prevCustId, { creditStandard: pStd, creditSmall: pSml, creditRider: pRdr });
+        if (typeof dbAddCreditLog === 'function') {
+          await dbAddCreditLog({
+            contactId: prevCustId,
+            customerName: prevCust.name,
+            type: 'refund',
+            action: 'Order Transferred Refund',
+            deltaStandard: prevCredits.stdUsed,
+            deltaSmall: prevCredits.smlUsed,
+            deltaRider: prevCredits.riderUsed,
+            newStandard: pStd,
+            newSmall: pSml,
+            newRider: pRdr,
+            remark: `Credits returned: order #${editingOrderId.slice(-6)} transferred to another customer`
+          });
+        }
+      }
+      prevCredits = { stdUsed: 0, smlUsed: 0, riderUsed: 0 };
+    }
+
+    const dbStd = parseInt(customer.creditStandard) || 0;
+    const dbSml = parseInt(customer.creditSmall) || 0;
+    const dbRdr = parseFloat(customer.creditRider) || 0;
+
+    const availStd = dbStd + prevCredits.stdUsed;
+    const availSml = dbSml + prevCredits.smlUsed;
+    const availRdr = dbRdr + prevCredits.riderUsed;
+
+    // Calculate how many meal credits needed for the edited order
+    let stdNeeded = 0;
+    let smlNeeded = 0;
+    if (isUseMealCredit) {
+      orderMealItems.forEach(item => {
+        if (item.portion === 'Small') smlNeeded++;
+        else stdNeeded++;
+      });
+    }
+
+    const newStdUsed = Math.min(availStd, stdNeeded);
+    const newSmlUsed = Math.min(availSml, smlNeeded);
+
+    // Net deltas for customer balance
+    // (prevCredits - newUsed): positive = refund back to customer; negative = deduct more from customer
+    const netDeltaStd = prevCredits.stdUsed - newStdUsed;
+    const netDeltaSml = prevCredits.smlUsed - newSmlUsed;
+    const finalCustStd = Math.max(0, dbStd + netDeltaStd);
+    const finalCustSml = Math.max(0, dbSml + netDeltaSml);
+
+    // Rider credit calculation
+    let newRdrUsed = 0;
+    if (isUseRiderCredit && riderFee > 0) {
+      newRdrUsed = Math.min(availRdr, riderFee);
+    }
+    const riderFeePaidByCredit = (isUseRiderCredit && newRdrUsed >= riderFee && riderFee > 0);
+    const netDeltaRdr = prevCredits.riderUsed - newRdrUsed;
+    const finalCustRdr = Math.max(0, dbRdr + netDeltaRdr);
+
+    // Update customer in DB if any credit balance changed
+    const stdChanged = (netDeltaStd !== 0);
+    const smlChanged = (netDeltaSml !== 0);
+    const rdrChanged = (Math.abs(netDeltaRdr) > 0.001);
+
+    if (stdChanged || smlChanged || rdrChanged) {
+      await dbUpdateContact(contactId, {
+        creditStandard: finalCustStd,
+        creditSmall: finalCustSml,
+        creditRider: finalCustRdr
+      });
+
+      if (typeof dbAddCreditLog === 'function') {
+        if (stdChanged || smlChanged) {
+          const deltaS = -netDeltaStd;
+          const deltaSm = -netDeltaSml;
+          const isDeduct = (deltaS < 0 || deltaSm < 0);
+          await dbAddCreditLog({
+            contactId: contactId,
+            customerName: customer.name,
+            type: isDeduct ? 'consume' : 'refund',
+            action: isDeduct ? 'Meal Consumed (Edit Order)' : 'Meal Refunded (Edit Order)',
+            deltaStandard: deltaS,
+            deltaSmall: deltaSm,
+            newStandard: finalCustStd,
+            newSmall: finalCustSml,
+            remark: `Edited order #${editingOrderId.slice(-6)} (Std: ${deltaS >= 0 ? '+' : ''}${deltaS}, Sml: ${deltaSm >= 0 ? '+' : ''}${deltaSm})`
+          });
+        }
+        if (rdrChanged) {
+          const deltaR = -netDeltaRdr;
+          const isDeduct = (deltaR < 0);
+          await dbAddCreditLog({
+            contactId: contactId,
+            customerName: customer.name,
+            type: isDeduct ? 'consume' : 'refund',
+            action: isDeduct ? 'Rider Fee Consumed (Edit Order)' : 'Rider Fee Refunded (Edit Order)',
+            deltaStandard: 0,
+            deltaSmall: 0,
+            deltaRider: deltaR,
+            newStandard: finalCustStd,
+            newSmall: finalCustSml,
+            newRider: finalCustRdr,
+            remark: `Edited order #${editingOrderId.slice(-6)} (Rider: ${deltaR >= 0 ? '+' : ''}RM ${deltaR.toFixed(2)})`
+          });
+        }
+      }
+    }
+
+    const dateStr = selectedDates[0] || existingOrd.date;
+    const menuObj = dbGetMenuByDate(dateStr);
+    const dayName = getDayNameFromDateStr(dateStr) || existingOrd.day || 'Monday';
+    const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : (existingOrd.foodName || 'Daily Healthy Meal');
+
+    let stdPool = newStdUsed;
+    let smlPool = newSmlUsed;
+
+    const itemsData = orderMealItems.map((mealItem, idx) => {
+      let isItemCovered = false;
+      if (mealItem.portion === 'Small' && smlPool > 0) {
+        smlPool--;
+        isItemCovered = true;
+      } else if (mealItem.portion === 'Standard' && stdPool > 0) {
+        stdPool--;
+        isItemCovered = true;
+      }
+
+      const itemBasePrice = isItemCovered ? 0 : (mealItem.portion === 'Small' ? pricing.small : pricing.standard);
+
+      let itemAddonPrice = 0;
+      if (mealItem.addons.has('protein')) itemAddonPrice += parseFloat(pricing.addonProtein) || 2.00;
+      if (mealItem.addons.has('vege')) itemAddonPrice += parseFloat(pricing.addonVege) || 1.50;
+      if (mealItem.addons.has('rice')) itemAddonPrice += parseFloat(pricing.addonRice) || 1.00;
+
+      return {
+        id: idx + 1,
+        portion: mealItem.portion,
+        meat: mealItem.meat || '',
+        addons: Array.from(mealItem.addons),
+        unitPrice: itemBasePrice,
+        addonPrice: itemAddonPrice,
+        isPackage: isItemCovered
+      };
+    });
+
+    const dayFoodAmount = itemsData.reduce((acc, it) => acc + it.unitPrice + it.addonPrice, 0);
+    const dayRiderPayable = Math.max(0, riderFee - newRdrUsed);
+    const dayTotalAmount = dayFoodAmount + dayRiderPayable;
+
+    let finalPaymentStatus = paymentStatus;
+    if (dayTotalAmount === 0 && (newStdUsed > 0 || newSmlUsed > 0 || riderFeePaidByCredit)) {
+      finalPaymentStatus = 'Package';
+    } else {
+      finalPaymentStatus = (paymentStatus === 'Paid') ? 'Paid' : 'Unpaid';
+    }
+
+    let finalRemark = remark || customer.remark || '';
+    if ((newStdUsed > 0 || newSmlUsed > 0) && !finalRemark.includes('Meal Credit')) {
+      finalRemark = finalRemark ? `${finalRemark} (Paid via Meal Credit)` : 'Paid via Meal Credit';
+    }
+    if (riderFeePaidByCredit && !finalRemark.includes('Rider Paid by Credit')) {
+      finalRemark = finalRemark ? `${finalRemark} • Rider Paid by Credit` : 'Rider Paid by Credit';
+    }
+
+    // Ensure meat selection is written into remark
+    const selectedMeats = orderMealItems.map((m, i) => m.meat ? (orderMealItems.length > 1 ? `#${i+1} ${m.meat}` : m.meat) : null).filter(Boolean);
+    if (selectedMeats.length > 0) {
+      const meatTag = `[Meat: ${selectedMeats.join(', ')}]`;
+      if (!finalRemark.includes('[Meat:')) {
+        finalRemark = finalRemark ? `${meatTag} ${finalRemark}` : meatTag;
+      }
+    }
+
+    const allPortions = Array.from(new Set(orderMealItems.map(m => m.portion)));
+    const summaryPortion = allPortions.length === 1 ? allPortions[0] : 'Mixed';
+    const allAddons = Array.from(new Set(orderMealItems.flatMap(m => Array.from(m.addons))));
+
+    const updatedOrderRecord = {
+      contactId: contactId,
+      customerName: customer.name,
+      customerPhone: customer.phone || '',
+      address: finalAddress,
+      riderId: finalRiderId,
+      riderName: finalRiderName,
+      foodAmount: dayFoodAmount,
+      foodUnitPrice: itemsData[0]?.unitPrice || 0,
+      addonPerMeal: itemsData.reduce((sum, it) => sum + it.addonPrice, 0) / (quantity || 1),
+      riderFee: riderFee,
+      riderFeePaidByCredit: riderFeePaidByCredit,
+      isSelfCollect: isSelfCollectChecked,
+      date: dateStr,
+      day: dayName,
+      menuId: dateStr,
+      foodName: foodName,
+      portion: summaryPortion,
+      addons: allAddons,
+      items: itemsData,
+      meatSelect: selectedMeats.join(', '),
+      unitPrice: itemsData[0]?.unitPrice || 0,
+      quantity: quantity,
+      totalAmount: dayTotalAmount,
+      paymentStatus: finalPaymentStatus,
+      remark: finalRemark,
+      mealCreditStandardUsed: newStdUsed,
+      mealCreditSmallUsed: newSmlUsed,
+      riderCreditUsed: newRdrUsed
+    };
+
+    await dbUpdateOrder(editingOrderId, updatedOrderRecord);
+
+    closeAddOrderModal();
+    renderOrders();
+    if (typeof renderContacts === 'function') renderContacts();
+    if (typeof renderDashboard === 'function') renderDashboard();
+    if (typeof renderKitchen === 'function') renderKitchen();
+
+    if (stdChanged || smlChanged || rdrChanged) {
+      const msgs = [];
+      if (stdChanged) {
+        msgs.push(netDeltaStd > 0 ? `Refunded ${netDeltaStd} Std Meal Credit` : `Deducted ${-netDeltaStd} Std Meal Credit`);
+      }
+      if (smlChanged) {
+        msgs.push(netDeltaSml > 0 ? `Refunded ${netDeltaSml} Sml Meal Credit` : `Deducted ${-netDeltaSml} Sml Meal Credit`);
+      }
+      if (rdrChanged) {
+        msgs.push(netDeltaRdr > 0 ? `Refunded RM ${netDeltaRdr.toFixed(2)} Rider Credit` : `Deducted RM ${(-netDeltaRdr).toFixed(2)} Rider Credit`);
+      }
+      showMaterialToast(`Order updated • ${msgs.join(' • ')}`, 'success');
+    } else {
+      showMaterialToast('Order updated successfully', 'success');
+    }
+
+    if (typeof showCleanCheckmark === 'function') {
+      showCleanCheckmark('Order Updated');
+    }
+    return;
+  }
+
+  // ==========================================
+  // CASE B: CREATING A NEW ORDER
+  // ==========================================
+  // Check customer's Meal Credit for each portion
+  let currentStdCredit = parseInt(customer.creditStandard) || 0;
+  let currentSmlCredit = parseInt(customer.creditSmall) || 0;
 
   let stdCreditsDeducted = 0;
   let smlCreditsDeducted = 0;
   let newStdCredit = currentStdCredit;
   let newSmlCredit = currentSmlCredit;
-
-  const pricing = dbGetPricing();
 
   if (isUseMealCredit) {
     let stdNeeded = 0;
@@ -2085,23 +2541,15 @@ async function saveOrderSubmit(event) {
   }
 
   // Rider Delivery Fee & Rider Credit Deduction
-  const isSelfCollectChecked = !!(document.getElementById('order-checkbox-self-collect')?.checked);
-  const riderFeeInput = document.getElementById('order-input-rider-fee');
-  const riderFee = isSelfCollectChecked ? 0 : (riderFeeInput ? (parseFloat(riderFeeInput.value) || 0) : 0);
-
   const currentRdrCredit = parseFloat(customer.creditRider) || 0;
-  const useRiderCreditCheckbox = document.getElementById('order-checkbox-use-rider-credit');
-  const isUseRiderCredit = !!(useRiderCreditCheckbox && useRiderCreditCheckbox.checked && currentRdrCredit > 0);
-
+  const isUseRdrCreditActual = !!(isUseRiderCredit && currentRdrCredit > 0);
   const totalRiderFeeForDates = riderFee * selectedDates.length;
   let riderCreditDeducted = 0;
   let newRiderCredit = currentRdrCredit;
-  let riderFeePaidByCredit = false;
 
-  if (isUseRiderCredit && totalRiderFeeForDates > 0) {
+  if (isUseRdrCreditActual && totalRiderFeeForDates > 0) {
     riderCreditDeducted = Math.min(currentRdrCredit, totalRiderFeeForDates);
     newRiderCredit = currentRdrCredit - riderCreditDeducted;
-    riderFeePaidByCredit = (riderCreditDeducted >= totalRiderFeeForDates);
 
     // Update customer's rider credit in DB
     await dbUpdateContact(contactId, {
@@ -2127,149 +2575,9 @@ async function saveOrderSubmit(event) {
     }
   }
 
-  // Determine delivery address and assigned rider (supports Address 1 vs Address 2)
-  let finalAddress = (customer.address || '').trim();
-  let finalRiderId = customer.riderId || '';
-  let finalRiderName = customer.riderName || ((customer.riderId && cachedContacts[customer.riderId]) ? cachedContacts[customer.riderId].name : '');
-
-  const hasTwoAddresses = customer.address && customer.address2 && customer.address2.trim();
-  if (hasTwoAddresses) {
-    const selectedNum = document.getElementById('order-input-selected-address-num') ? document.getElementById('order-input-selected-address-num').value : '1';
-    if (selectedNum === '2') {
-      finalAddress = customer.address2.trim();
-      finalRiderId = customer.riderId2 || '';
-      finalRiderName = customer.riderName2 || ((customer.riderId2 && cachedContacts[customer.riderId2]) ? cachedContacts[customer.riderId2].name : '');
-    } else {
-      finalAddress = customer.address ? customer.address.trim() : '';
-      finalRiderId = customer.riderId || '';
-      finalRiderName = customer.riderName || ((customer.riderId && cachedContacts[customer.riderId]) ? cachedContacts[customer.riderId].name : '');
-    }
-  } else if (!finalAddress && customer.address2) {
-    finalAddress = customer.address2.trim();
-    finalRiderId = customer.riderId2 || '';
-    finalRiderName = customer.riderName2 || ((customer.riderId2 && cachedContacts[customer.riderId2]) ? cachedContacts[customer.riderId2].name : '');
-  }
-
-  if (isSelfCollectChecked) {
-    finalRiderId = 'self-collect';
-    finalRiderName = 'Self Collect';
-  } else {
-    // Check if rider is overridden in the order rider selector
-    const chosenRiderSelect = document.getElementById('order-select-rider');
-    if (chosenRiderSelect && chosenRiderSelect.value) {
-      finalRiderId = chosenRiderSelect.value;
-      finalRiderName = (cachedContacts[finalRiderId] ? cachedContacts[finalRiderId].name : '') || finalRiderName;
-    } else if (chosenRiderSelect && chosenRiderSelect.value === '') {
-      finalRiderId = '';
-      finalRiderName = '';
-    }
-  }
-
-  const editingOrderId = document.getElementById('order-input-edit-id')?.value;
-  if (editingOrderId && cachedOrders[editingOrderId]) {
-    const existingOrd = cachedOrders[editingOrderId];
-    const dateStr = selectedDates[0] || existingOrd.date;
-    const menuObj = dbGetMenuByDate(dateStr);
-    const dayName = getDayNameFromDateStr(dateStr) || existingOrd.day || 'Monday';
-    const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : (existingOrd.foodName || 'Daily Healthy Meal');
-
-    const itemsData = orderMealItems.map((mealItem, idx) => {
-      let isItemCovered = isUseMealCredit;
-      const itemBasePrice = isItemCovered ? 0 : (mealItem.portion === 'Small' ? pricing.small : pricing.standard);
-
-      let itemAddonPrice = 0;
-      if (mealItem.addons.has('protein')) itemAddonPrice += parseFloat(pricing.addonProtein) || 2.00;
-      if (mealItem.addons.has('vege')) itemAddonPrice += parseFloat(pricing.addonVege) || 1.50;
-      if (mealItem.addons.has('rice')) itemAddonPrice += parseFloat(pricing.addonRice) || 1.00;
-
-      return {
-        id: idx + 1,
-        portion: mealItem.portion,
-        meat: mealItem.meat || '',
-        addons: Array.from(mealItem.addons),
-        unitPrice: itemBasePrice,
-        addonPrice: itemAddonPrice,
-        isPackage: isItemCovered
-      };
-    });
-
-    const dayFoodAmount = itemsData.reduce((acc, it) => acc + it.unitPrice + it.addonPrice, 0);
-    const dayRiderPayable = isUseRiderCredit ? 0 : riderFee;
-    const dayTotalAmount = dayFoodAmount + dayRiderPayable;
-
-    let finalPaymentStatus = paymentStatus;
-    if (dayTotalAmount === 0 && (isUseMealCredit || isUseRiderCredit)) {
-      finalPaymentStatus = 'Package';
-    } else {
-      finalPaymentStatus = (paymentStatus === 'Paid') ? 'Paid' : 'Unpaid';
-    }
-
-    let finalRemark = remark || customer.remark || '';
-    if (isUseMealCredit && !finalRemark.includes('Meal Credit')) {
-      finalRemark = finalRemark ? `${finalRemark} (Paid via Meal Credit)` : 'Paid via Meal Credit';
-    }
-    if (isUseRiderCredit && !finalRemark.includes('Rider Paid by Credit')) {
-      finalRemark = finalRemark ? `${finalRemark} • Rider Paid by Credit` : 'Rider Paid by Credit';
-    }
-
-    // Ensure meat selection is written into remark
-    const selectedMeats = orderMealItems.map((m, i) => m.meat ? (orderMealItems.length > 1 ? `#${i+1} ${m.meat}` : m.meat) : null).filter(Boolean);
-    if (selectedMeats.length > 0) {
-      const meatTag = `[Meat: ${selectedMeats.join(', ')}]`;
-      if (!finalRemark.includes('[Meat:')) {
-        finalRemark = finalRemark ? `${meatTag} ${finalRemark}` : meatTag;
-      }
-    }
-
-    const allPortions = Array.from(new Set(orderMealItems.map(m => m.portion)));
-    const summaryPortion = allPortions.length === 1 ? allPortions[0] : 'Mixed';
-    const allAddons = Array.from(new Set(orderMealItems.flatMap(m => Array.from(m.addons))));
-
-    const updatedOrderRecord = {
-      contactId: contactId,
-      customerName: customer.name,
-      customerPhone: customer.phone || '',
-      address: finalAddress,
-      riderId: finalRiderId,
-      riderName: finalRiderName,
-      foodAmount: dayFoodAmount,
-      foodUnitPrice: itemsData[0]?.unitPrice || 0,
-      addonPerMeal: itemsData.reduce((sum, it) => sum + it.addonPrice, 0) / (quantity || 1),
-      riderFee: riderFee,
-      riderFeePaidByCredit: isUseRiderCredit,
-      isSelfCollect: isSelfCollectChecked,
-      date: dateStr,
-      day: dayName,
-      menuId: dateStr,
-      foodName: foodName,
-      portion: summaryPortion,
-      addons: allAddons,
-      items: itemsData,
-      meatSelect: selectedMeats.join(', '),
-      unitPrice: itemsData[0]?.unitPrice || 0,
-      quantity: quantity,
-      totalAmount: dayTotalAmount,
-      paymentStatus: finalPaymentStatus,
-      remark: finalRemark
-    };
-
-    await dbUpdateOrder(editingOrderId, updatedOrderRecord);
-
-    closeAddOrderModal();
-    renderOrders();
-    if (typeof renderContacts === 'function') renderContacts();
-    if (typeof renderDashboard === 'function') renderDashboard();
-    if (typeof renderKitchen === 'function') renderKitchen();
-
-    showMaterialToast('Order updated successfully', 'success');
-    if (typeof showCleanCheckmark === 'function') {
-      showCleanCheckmark('Order Updated');
-    }
-    return;
-  }
-
   let stdPool = stdCreditsDeducted;
   let smlPool = smlCreditsDeducted;
+  let rdrPool = riderCreditDeducted;
   const createdOrderIds = [];
 
   for (const dateStr of selectedDates) {
@@ -2277,14 +2585,19 @@ async function saveOrderSubmit(event) {
     const dayName = getDayNameFromDateStr(dateStr) || 'Monday';
     const foodName = (menuObj && menuObj.foodName) ? menuObj.foodName : 'Daily Healthy Meal';
 
+    let dateStdUsed = 0;
+    let dateSmlUsed = 0;
+
     // Construct itemized details for each meal
     const itemsData = orderMealItems.map((mealItem, idx) => {
       let isItemCovered = false;
       if (mealItem.portion === 'Small' && smlPool > 0) {
         smlPool--;
+        dateSmlUsed++;
         isItemCovered = true;
       } else if (mealItem.portion === 'Standard' && stdPool > 0) {
         stdPool--;
+        dateStdUsed++;
         isItemCovered = true;
       }
 
@@ -2306,26 +2619,27 @@ async function saveOrderSubmit(event) {
       };
     });
 
+    const dateRdrUsed = Math.min(rdrPool, riderFee);
+    rdrPool -= dateRdrUsed;
+    const dateRdrPaidByCredit = (dateRdrUsed >= riderFee && riderFee > 0);
+
     const dayFoodAmount = itemsData.reduce((acc, it) => acc + it.unitPrice + it.addonPrice, 0);
-    const dayRiderPayable = (riderCreditDeducted >= totalRiderFeeForDates)
-      ? 0
-      : Math.max(0, riderFee - (riderCreditDeducted / selectedDates.length));
+    const dayRiderPayable = Math.max(0, riderFee - dateRdrUsed);
     const dayTotalAmount = dayFoodAmount + dayRiderPayable;
 
     // Determine final payment status for this date's order
     let finalPaymentStatus = paymentStatus;
-    if (dayTotalAmount === 0 && (isUseMealCredit || riderFeePaidByCredit)) {
+    if (dayTotalAmount === 0 && ((dateStdUsed > 0 || dateSmlUsed > 0) || dateRdrPaidByCredit)) {
       finalPaymentStatus = 'Package';
     } else {
       finalPaymentStatus = (paymentStatus === 'Paid') ? 'Paid' : 'Unpaid';
     }
 
     let finalRemark = remark || customer.remark || '';
-    if (isUseMealCredit && (stdCreditsDeducted > 0 || smlCreditsDeducted > 0)) {
-      const creditNote = 'Paid via Meal Credit';
-      finalRemark = finalRemark ? `${finalRemark} (${creditNote})` : creditNote;
+    if ((dateStdUsed > 0 || dateSmlUsed > 0) && !finalRemark.includes('Meal Credit')) {
+      finalRemark = finalRemark ? `${finalRemark} (Paid via Meal Credit)` : 'Paid via Meal Credit';
     }
-    if (riderFeePaidByCredit) {
+    if (dateRdrPaidByCredit && !finalRemark.includes('Rider Paid by Credit')) {
       finalRemark = finalRemark ? `${finalRemark} • Rider Paid by Credit` : 'Rider Paid by Credit';
     }
 
@@ -2353,7 +2667,7 @@ async function saveOrderSubmit(event) {
       foodUnitPrice: itemsData[0]?.unitPrice || 0,
       addonPerMeal: itemsData.reduce((sum, it) => sum + it.addonPrice, 0) / (quantity || 1),
       riderFee: riderFee,
-      riderFeePaidByCredit: riderFeePaidByCredit,
+      riderFeePaidByCredit: dateRdrPaidByCredit,
       isSelfCollect: isSelfCollectChecked,
       date: dateStr,
       day: dayName,
@@ -2367,7 +2681,10 @@ async function saveOrderSubmit(event) {
       quantity: quantity,
       totalAmount: dayTotalAmount,
       paymentStatus: finalPaymentStatus,
-      remark: finalRemark
+      remark: finalRemark,
+      mealCreditStandardUsed: dateStdUsed,
+      mealCreditSmallUsed: dateSmlUsed,
+      riderCreditUsed: dateRdrUsed
     };
 
     const newOrdId = await dbAddOrder(orderRecord);

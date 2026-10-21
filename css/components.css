@@ -3498,6 +3498,71 @@
   }
 }
 
+/* Customer Debt Management UI Styles */
+.debt-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.debt-kpi-card {
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.debt-kpi-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.debt-row-highlight {
+  background-color: rgba(254, 242, 242, 0.35);
+}
+
+.debt-row-highlight:hover {
+  background-color: rgba(254, 242, 242, 0.65) !important;
+}
+
+.debt-mobile-card.has-debt {
+  border-left: 4px solid #ef4444 !important;
+}
+
+/* Dark Mode Overrides for Debt Management */
+[data-theme="dark"] .debt-kpi-card {
+  background: var(--bg-surface) !important;
+  border-color: var(--border-color) !important;
+}
+
+[data-theme="dark"] #debt-kpi-total-outstanding {
+  color: #fb7185 !important;
+}
+
+[data-theme="dark"] #debt-kpi-meal-outstanding {
+  color: #fbbf24 !important;
+}
+
+[data-theme="dark"] #debt-kpi-rider-outstanding {
+  color: #38bdf8 !important;
+}
+
+[data-theme="dark"] #debt-kpi-customers-count {
+  color: #f1f5f9 !important;
+}
+
+[data-theme="dark"] .debt-row-highlight {
+  background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+[data-theme="dark"] .debt-row-highlight:hover {
+  background-color: rgba(239, 68, 68, 0.18) !important;
+}
+
+[data-theme="dark"] #profile-debt-summary-card {
+  background: rgba(239, 68, 68, 0.08) !important;
+  border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+
 
 
 
