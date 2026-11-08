@@ -420,15 +420,15 @@ function renderCustomerDebtView() {
           </div>
         </div>
 
-        <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
-          <button type="button" class="btn btn-sm btn-whatsapp" onclick="openWhatsAppDebtModal('${c.contactId}')" style="flex: 1; padding: 0.45rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;">
-            ${getSvgIcon('whatsapp')} WhatsApp
+        <div style="display: flex; gap: 0.4rem; align-items: center;">
+          <button type="button" class="btn btn-sm btn-whatsapp" onclick="openWhatsAppDebtModal('${c.contactId}')" style="flex: 1; padding: 0.45rem 0.2rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 0.25rem; font-size: 0.78rem;">
+            ${getSvgIcon('whatsapp')} WA
           </button>
-          <button type="button" class="btn btn-sm btn-outline" onclick="openCustomerDebtHistoryModal('${c.contactId}')" style="flex: 1; padding: 0.45rem; font-weight: 700;">
-            📜 Order &amp; Debt History
+          <button type="button" class="btn btn-sm btn-primary" onclick="openRecordRepaymentModal('${c.contactId}')" style="flex: 1; padding: 0.45rem 0.2rem; font-weight: 800; font-size: 0.78rem; background: #059669; border-color: #059669;">
+            💳 Pay
           </button>
-          <button type="button" class="btn btn-sm btn-primary" onclick="openRecordRepaymentModal('${c.contactId}')" style="flex: 1; padding: 0.45rem; font-weight: 800; background: #059669; border-color: #059669;">
-            💳 Record Payment
+          <button type="button" class="btn btn-sm btn-outline" onclick="openCustomerDebtHistoryModal('${c.contactId}')" style="flex: 1; padding: 0.45rem 0.2rem; font-weight: 700; font-size: 0.78rem;">
+            📜 Details
           </button>
         </div>
       </div>

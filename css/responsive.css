@@ -408,6 +408,115 @@ html, body, #app-container, .main-wrapper {
   .bottom-nav-item {
     touch-action: manipulation;
   }
+
+  /* ── Customer Debt: mobile-optimized layout ── */
+
+  /* KPI cards: 2×2 compact grid */
+  #contacts-subview-debt .debt-kpi-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.6rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  #contacts-subview-debt .debt-kpi-card {
+    padding: 0.7rem 0.75rem !important;
+    border-radius: 12px !important;
+  }
+
+  #contacts-subview-debt .debt-kpi-card > div:first-child > span:first-child {
+    font-size: 0.64rem !important;
+    letter-spacing: 0.02em !important;
+  }
+
+  #contacts-subview-debt .debt-kpi-card > div:first-child > span:last-child {
+    font-size: 1.1rem !important;
+  }
+
+  #contacts-subview-debt .debt-kpi-card [id^="debt-kpi-"] {
+    font-size: 1.25rem !important;
+    margin-top: 0.3rem !important;
+  }
+
+  #contacts-subview-debt .debt-kpi-card > div:last-child {
+    font-size: 0.66rem !important;
+    margin-top: 0.15rem !important;
+  }
+
+  /* Filter bar: stack controls, full-width search + scrollable segments */
+  #contacts-subview-debt .week-selector-card {
+    padding: 0.7rem 0.75rem !important;
+    margin-bottom: 0.85rem !important;
+  }
+
+  #contacts-subview-debt .week-selector-card > div:first-child {
+    gap: 0.6rem !important;
+  }
+
+  #contacts-subview-debt .search-box {
+    flex: 1 1 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #contacts-subview-debt .ios-segmented-nav {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  #contacts-subview-debt .ios-segmented-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  #contacts-subview-debt .ios-segment-btn {
+    white-space: nowrap;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.78rem;
+    min-height: 40px;
+  }
+
+  /* Sort dropdown: full width on its own row */
+  #contacts-subview-debt .week-selector-card > div:first-child > div:last-child {
+    flex: 1 1 100%;
+    justify-content: space-between;
+  }
+
+  #contacts-subview-debt #debt-sort-select {
+    flex: 1;
+  }
+
+  /* Mobile debt card: single-row action buttons */
+  .debt-mobile-card > div:last-child {
+    flex-wrap: nowrap !important;
+    gap: 0.4rem !important;
+  }
+
+  .debt-mobile-card > div:last-child .btn {
+    min-height: 42px !important;
+    font-size: 0.78rem !important;
+    white-space: nowrap;
+  }
+
+  /* Mobile debt card: compact 3-box breakdown */
+  .debt-mobile-card > div:nth-child(2) {
+    gap: 0.4rem !important;
+    padding: 0.55rem 0.6rem !important;
+    margin: 0.65rem 0 !important;
+  }
+
+  .debt-mobile-card > div:nth-child(2) > div > div:first-child {
+    font-size: 0.6rem !important;
+  }
+
+  .debt-mobile-card > div:nth-child(2) > div > div:nth-child(2) {
+    font-size: 0.82rem !important;
+  }
+
+  .debt-mobile-card > div:nth-child(2) > div > div:last-child {
+    font-size: 0.62rem !important;
+  }
 }
 
 /* ═══════════════════════════════════════
