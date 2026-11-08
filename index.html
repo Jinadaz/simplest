@@ -1874,8 +1874,59 @@
     </div>
   </div>
 
+
+  <!-- 9. WHATSAPP DEBT CHAT MODAL -->
+  <div id="whatsapp-debt-modal" class="modal-overlay">
+    <div class="modal-card wa-chat-modal-card">
+      <!-- WhatsApp-style header -->
+      <div class="wa-chat-header">
+        <div class="wa-chat-avatar" id="wa-debt-avatar">👤</div>
+        <div>
+          <div class="wa-chat-title" id="wa-debt-name">Customer</div>
+          <div class="wa-chat-subtitle" id="wa-debt-phone">online</div>
+        </div>
+        <button type="button" class="wa-chat-close" onclick="closeWhatsAppDebtModal()">✕</button>
+      </div>
+
+      <!-- Custom opener (default greeting) settings -->
+      <div class="wa-chat-opener">
+        <div class="wa-chat-opener-head" onclick="toggleWaOpenerPanel()">
+          <span class="wa-chat-opener-title">💬 Opening message (shown above the breakdown)</span>
+          <span class="wa-chat-opener-toggle" id="wa-opener-toggle-icon">▾</span>
+        </div>
+        <div class="wa-chat-opener-panel" id="wa-opener-panel">
+          <textarea id="wa-opener-input" class="wa-opener-input" rows="3"
+            placeholder="Customize the default opening message. Use {name} for the customer name…"></textarea>
+          <div style="display: flex; align-items: center; gap: 0.5rem; margin-top: 0.4rem;">
+            <button type="button" class="btn btn-sm btn-outline" id="wa-opener-save-btn" style="font-weight: 700;">Save as default</button>
+            <span style="font-size: 0.68rem; color: #667781;">{name} will be replaced with the customer's name</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Chat body: editable bubble -->
+      <div class="wa-chat-body" id="wa-debt-chat-body">
+        <div class="wa-chat-date-divider"><span id="wa-debt-date-label">Today</span></div>
+        <div class="wa-bubble wa-bubble-out" id="wa-debt-bubble">
+          <span id="wa-debt-bubble-text"></span>
+        </div>
+      </div>
+
+      <!-- Editor + send -->
+      <div class="wa-chat-editor">
+        <textarea id="wa-debt-textarea" placeholder="Type a message"></textarea>
+        <button type="button" class="wa-chat-send" id="wa-debt-send-btn" title="Send via WhatsApp">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 22px; height: 22px;">
+            <path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="js/config.js"></script>
-  <script src="js/exceljs.min.js"></script>
+  <!-- js/exceljs.min.js (~950 KB) is loaded on demand by excelExporter.js
+       instead of blocking first paint on phones. -->
   <script src="js/utils/excelExporter.js"></script>
   <script src="js/utils/receiptPrinter.js"></script>
   <script src="js/utils/formatters.js"></script>

@@ -6,12 +6,41 @@ let ordersMonthOffset = 0; // 0 = Current Month, -1 = Prev Month, +1 = Next Mont
 let orderFilterPayment = 'All';
 let orderSearchQuery = '';
 
+/* Mobile lists render incrementally: rendering a few hundred cards in one
+   go blocks the main thread for hundreds of ms on a phone. We render the
+   first batch and let the user pull in more. */
+const ORDERS_MOBILE_BATCH = 40;
+let ordersMobileRenderLimit = ORDERS_MOBILE_BATCH;
+
+function resetOrdersMobileRenderLimit() {
+  ordersMobileRenderLimit = ORDERS_MOBILE_BATCH;
+}
+
+function loadMoreOrders() {
+  ordersMobileRenderLimit += ORDERS_MOBILE_BATCH;
+  renderOrders();
+}
+
+function buildOrdersLoadMoreHtml(shownCount, total) {
+  if (shownCount >= total) return '';
+  const remaining = total - shownCount;
+  const step = Math.min(ORDERS_MOBILE_BATCH, remaining);
+  return `
+    <div class="list-load-more">
+      <button type="button" class="btn btn-outline btn-sm" onclick="loadMoreOrders()">
+        Load ${step} more · showing ${shownCount} of ${total}
+      </button>
+    </div>
+  `;
+}
+
 function initOrdersView() {
   renderOrders();
 }
 
 function setOrdersViewScope(scope) {
   orderViewScope = scope;
+  resetOrdersMobileRenderLimit();
   renderOrders();
 }
 
@@ -24,6 +53,7 @@ function setOrdersDayOffset(offsetChange) {
   if (typeof ensureOrdersDateLoaded === 'function') {
     ensureOrdersDateLoaded(targetDateStr);
   }
+  resetOrdersMobileRenderLimit();
   renderOrders();
 }
 
@@ -36,6 +66,7 @@ function setOrdersMonthOffset(offsetChange) {
   if (typeof ensureOrdersMonthLoaded === 'function') {
     ensureOrdersMonthLoaded(targetYearMonth);
   }
+  resetOrdersMobileRenderLimit();
   renderOrders();
 }
 
@@ -46,12 +77,22 @@ function setOrderFilter(type, value) {
       btn.classList.toggle('active', btn.getAttribute('data-val') === value);
     });
   }
+  resetOrdersMobileRenderLimit();
   renderOrders();
 }
 
+let orderSearchTimer = null;
+
 function handleOrderSearchFilter(query) {
+  // Keep the raw query in sync immediately so the value is never stale,
+  // but debounce the (expensive) list re-render so typing stays smooth.
   orderSearchQuery = query;
-  renderOrders();
+  if (orderSearchTimer) clearTimeout(orderSearchTimer);
+  orderSearchTimer = setTimeout(() => {
+    orderSearchTimer = null;
+    resetOrdersMobileRenderLimit();
+    renderOrders();
+  }, 180);
 }
 
 function formatOrderItemsDetails(items) {
@@ -138,6 +179,11 @@ function getOrderPriceBreakdown(ord) {
 function renderOrders() {
   const container = document.getElementById('orders-list-container');
   if (!container) return;
+
+  // Only build the markup that is actually visible. Rendering BOTH the desktop
+  // table rows and the mobile cards doubles the DOM work (and the browser still
+  // parses/lays out the hidden half), which is the main cause of lag on phones.
+  const mobileOnly = window.matchMedia('(max-width: 600px)').matches;
 
   // Sync Scope Toggle Buttons
   const scopeDayBtn = document.getElementById('orders-scope-day');
@@ -268,7 +314,8 @@ function renderOrders() {
     let tableRowsHtml = '';
     let mobileCardsHtml = '';
 
-    filtered.forEach(ord => {
+    const renderList = mobileOnly ? filtered.slice(0, ordersMobileRenderLimit) : filtered;
+    renderList.forEach(ord => {
       const isPaid = ord.paymentStatus === 'Paid';
       const portion = ord.portion || 'Standard';
       const contact = ord.contactId ? cachedContacts[ord.contactId] : null;
@@ -297,7 +344,7 @@ function renderOrders() {
       const feeHtml = isSC ? '' : (ord.riderFee && parseFloat(ord.riderFee) > 0 ? `<span style="font-size: 0.68rem; color: #0284c7; font-weight: 700;">Fee: RM${parseFloat(ord.riderFee).toFixed(2)}</span>` : '');
 
       // Desktop Table Row for Month View
-      tableRowsHtml += `
+      if (!mobileOnly) tableRowsHtml += `
         <tr data-order-id="${ord.orderId}">
           <td>
             <div style="display: flex; flex-direction: column; gap: 0.15rem;">
@@ -322,14 +369,11 @@ function renderOrders() {
               <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; line-height: 1.25; margin-top: 2px;">
                 ${formatOrderItemsDetails(ord.items)}
               </div>
-            ` : `
+            ` : (ord.addons && ord.addons.length > 0 ? `
               <div style="margin-top: 2px;">
-                <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">
-                  ${ord.portion || 'Standard'}
-                </span>
-                ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700; margin-left: 3px;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
+                <span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>
               </div>
-            `}
+            ` : '')}
           </td>
           <td>
             <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${breakdown.mealDisplay}</div>
@@ -374,7 +418,7 @@ function renderOrders() {
       `;
 
       // Mobile Card Item
-      mobileCardsHtml += `
+      if (mobileOnly) mobileCardsHtml += `
         <div class="mobile-data-card" data-order-id="${ord.orderId}">
           <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.45rem; gap: 0.5rem;">
             <div>
@@ -397,10 +441,9 @@ function renderOrders() {
               <div style="font-size: 0.725rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
                 ${formatOrderItemsDetails(ord.items)}
               </div>
-            ` : `
-              <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">${ord.portion || 'Standard'}</span>
-              ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
-            `}
+            ` : (ord.addons && ord.addons.length > 0 ? `
+              <span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>
+            ` : '')}
             ${isSC ? ' • 🏪 Self Collect' : (riderName ? ` • 🛵 ${riderName}${ord.riderFee && parseFloat(ord.riderFee) > 0 ? ` (Fee: RM${parseFloat(ord.riderFee).toFixed(2)})` : ''}` : '')}
           </div>
           </div>
@@ -429,6 +472,10 @@ function renderOrders() {
         </div>
       `;
     });
+
+    if (mobileOnly && filtered.length > ordersMobileRenderLimit) {
+      mobileCardsHtml += buildOrdersLoadMoreHtml(ordersMobileRenderLimit, filtered.length);
+    }
 
     container.innerHTML = `
       ${statsHtml}
@@ -532,7 +579,8 @@ function renderOrders() {
   let tableRowsHtml = '';
   let mobileCardsHtml = '';
 
-  filtered.forEach(ord => {
+  const renderList = mobileOnly ? filtered.slice(0, ordersMobileRenderLimit) : filtered;
+  renderList.forEach(ord => {
     const isPaid = ord.paymentStatus === 'Paid';
     const portion = ord.portion || 'Standard';
     const contact = ord.contactId ? cachedContacts[ord.contactId] : null;
@@ -554,7 +602,7 @@ function renderOrders() {
       ord.items
     );
 
-    tableRowsHtml += `
+    if (!mobileOnly) tableRowsHtml += `
       <tr data-order-id="${ord.orderId}">
         <td style="font-weight: 700;">
           <div>${ord.customerName}</div>
@@ -571,14 +619,11 @@ function renderOrders() {
             <div style="font-size: 0.72rem; color: var(--text-muted); font-weight: 600; line-height: 1.25; margin-top: 2px;">
               ${formatOrderItemsDetails(ord.items)}
             </div>
-          ` : `
+          ` : (ord.addons && ord.addons.length > 0 ? `
             <div style="margin-top: 2px;">
-              <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">
-                ${ord.portion || 'Standard'}
-              </span>
-              ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700; margin-left: 3px;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
+              <span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>
             </div>
-          `}
+          ` : '')}
         </td>
         <td>
           <div style="font-weight: 700; color: var(--text-main); font-size: 0.9rem;">${breakdown.mealDisplay}</div>
@@ -610,7 +655,7 @@ function renderOrders() {
       </tr>
     `;
 
-    mobileCardsHtml += `
+    if (mobileOnly) mobileCardsHtml += `
       <div class="mobile-data-card" data-order-id="${ord.orderId}">
         <div style="display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 0.45rem; gap: 0.5rem;">
           <div>
@@ -633,10 +678,9 @@ function renderOrders() {
             <div style="font-size: 0.725rem; color: var(--text-main); font-weight: 600; margin-top: 2px;">
               ${formatOrderItemsDetails(ord.items)}
             </div>
-          ` : `
-            <span class="portion-badge ${(ord.portion || 'Standard') === 'Small' ? 'portion-small' : 'portion-standard'}">${ord.portion || 'Standard'}</span>
-            ${ord.addons && ord.addons.length > 0 ? `<span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>` : ''}
-          `}
+          ` : (ord.addons && ord.addons.length > 0 ? `
+            <span style="font-size: 0.7rem; color: #059669; font-weight: 700;">(+${ord.addons.map(a => a.charAt(0).toUpperCase() + a.slice(1)).join(', ')})</span>
+          ` : '')}
           ${riderName ? ` • 🛵 ${riderName}${ord.riderFee && parseFloat(ord.riderFee) > 0 ? ` (Fee: RM${parseFloat(ord.riderFee).toFixed(2)})` : ''}` : ''}
         </div>
         <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 0.5rem; border-top: 1px dashed var(--border-color);">
@@ -658,6 +702,10 @@ function renderOrders() {
       </div>
     `;
   });
+
+  if (mobileOnly && filtered.length > ordersMobileRenderLimit) {
+    mobileCardsHtml += buildOrdersLoadMoreHtml(ordersMobileRenderLimit, filtered.length);
+  }
 
   container.innerHTML = `
     <!-- Desktop Table View -->

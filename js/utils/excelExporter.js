@@ -5,6 +5,39 @@ const EXCEL_TEMPLATE_BASE64 = 'UEsDBBQACAgIABmpPF0AAAAAAAAAAAAAAAAYAAAAeGwvZHJhd
 
 let currentExportDayOffset = 0;
 
+/* ───────────────────────────────────────────────────────────────
+   Lazy loader for ExcelJS (~950 KB).
+   Loading it synchronously on startup costs hundreds of ms of
+   main-thread parse time on a phone, yet it is only needed when the
+   user actually exports a report. We therefore inject the script on
+   demand, and warm it up as soon as the export dialog opens, so the
+   actual export click does not have to wait for the download.
+─────────────────────────────────────────────────────────────── */
+let excelJsLoadPromise = null;
+
+function ensureExcelJSLoaded() {
+  if (typeof ExcelJS !== 'undefined') return Promise.resolve(ExcelJS);
+  if (excelJsLoadPromise) return excelJsLoadPromise;
+
+  excelJsLoadPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'js/exceljs.min.js';
+    script.async = true;
+    script.onload = () => {
+      if (typeof ExcelJS !== 'undefined') resolve(ExcelJS);
+      else reject(new Error('ExcelJS loaded but global is missing'));
+    };
+    script.onerror = () => {
+      excelJsLoadPromise = null; // allow a retry
+      reject(new Error('Failed to download js/exceljs.min.js'));
+    };
+    document.head.appendChild(script);
+  });
+
+  return excelJsLoadPromise;
+}
+
+
 /**
  * Load template ArrayBuffer: attempts fetch('js/1.xlsx'), fallbacks to embedded base64
  */
@@ -289,9 +322,17 @@ function getDayOrdersDataForExcel(dayOffset = 0) {
  * Fill 1.xlsx template with ONLY the current day's data and trigger download
  */
 async function exportDailyOrdersToExcel(dayOffset = currentExportDayOffset) {
-  if (typeof ExcelJS === 'undefined') {
+  try {
+    if (typeof ExcelJS === 'undefined') {
+      if (typeof showMaterialToast === 'function') {
+        showMaterialToast('Preparing Excel engine, please wait...', 'info');
+      }
+      await ensureExcelJSLoaded();
+    }
+  } catch (loadErr) {
+    console.error('[ExcelExporter] ExcelJS load failed:', loadErr);
     if (typeof showMaterialToast === 'function') {
-      showMaterialToast('Excel library is still loading, please try again.', 'warning');
+      showMaterialToast('Excel library could not be loaded. Please check your connection and retry.', 'error');
     }
     return;
   }
@@ -405,6 +446,10 @@ function openExportExcelModal(dayOffset) {
 
   const modal = document.getElementById('export-excel-modal');
   if (!modal) return;
+
+  // The user is about to export — start downloading ExcelJS now so the
+  // actual export click does not have to wait for it.
+  ensureExcelJSLoaded().catch(() => { });
 
   renderExportExcelModalContent();
   modal.classList.add('active');

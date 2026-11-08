@@ -7,6 +7,9 @@ let cachedOrders = {};
 let cachedCreditLogs = {};
 let cachedDebtPayments = {};
 let cachedPricing = { standard: 12.00, small: 9.00, addonProtein: 2.00, addonVege: 1.50, addonRice: 1.00, defaultRiderFee: 0, riderFees: {} };
+let cachedWaOpener = '';
+
+const DEFAULT_WA_OPENER_DB = 'Hi {name},\n\nHere is your outstanding balance summary:';
 
 let dbListeners = [];
 let isDbInitialized = false;
@@ -86,6 +89,13 @@ async function initDatabase() {
       notifyDataChanged();
     });
 
+    // 3.5. Settings / WhatsApp opener
+    db.ref('settings/wa_opener').on('value', (snapshot) => {
+      const val = snapshot.val();
+      cachedWaOpener = (typeof val === 'string' && val) ? val : DEFAULT_WA_OPENER_DB;
+      notifyDataChanged();
+    });
+
     const now = new Date();
     const currMonthKey = getOrderMonthKey(now);
     const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -108,6 +118,14 @@ async function initDatabase() {
     const localCreditLogs = localStorage.getItem('simplest_credit_logs');
     const localDebtPayments = localStorage.getItem('simplest_debt_payments');
     const localPricing = localStorage.getItem('simplest_pricing');
+    const localWaOpener = localStorage.getItem('simplest_wa_opener');
+
+    if (localWaOpener) {
+      cachedWaOpener = localWaOpener;
+    } else {
+      cachedWaOpener = DEFAULT_WA_OPENER_DB;
+      localStorage.setItem('simplest_wa_opener', DEFAULT_WA_OPENER_DB);
+    }
 
     if (localPricing) {
       try {
@@ -162,6 +180,7 @@ function saveToLocalStorage() {
   localStorage.setItem('simplest_credit_logs', JSON.stringify(cachedCreditLogs));
   localStorage.setItem('simplest_debt_payments', JSON.stringify(cachedDebtPayments));
   localStorage.setItem('simplest_pricing', JSON.stringify(cachedPricing));
+  localStorage.setItem('simplest_wa_opener', cachedWaOpener || DEFAULT_WA_OPENER_DB);
   notifyDataChanged();
 }
 
@@ -735,6 +754,23 @@ async function dbSavePricing(pricing) {
     saveToLocalStorage();
   }
   return cachedPricing;
+}
+
+function dbGetWaOpener() {
+  return cachedWaOpener || DEFAULT_WA_OPENER_DB;
+}
+
+async function dbSaveWaOpener(text) {
+  const val = (text !== undefined && text !== null) ? String(text) : DEFAULT_WA_OPENER_DB;
+  cachedWaOpener = val;
+  notifyDataChanged();
+
+  if (isFirebaseLive && db) {
+    await db.ref('settings/wa_opener').set(val);
+  } else {
+    saveToLocalStorage();
+  }
+  return cachedWaOpener;
 }
 
 // Credit Log Actions

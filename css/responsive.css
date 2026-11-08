@@ -71,10 +71,21 @@ html, body, #app-container, .main-wrapper {
     font-size: 1rem;
     font-weight: 800;
     letter-spacing: -0.3px;
+    /* Long titles must shrink, not push the action buttons off-screen */
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .header-brand-title {
+    min-width: 0;
+    flex: 1 1 auto;
   }
 
   .header-actions {
     gap: 0.5rem;
+    flex-shrink: 0;
   }
 
   /* ── Content body ── */
@@ -182,6 +193,8 @@ html, body, #app-container, .main-wrapper {
   .ios-segment-btn {
     padding: 0.5rem 0.25rem;
     font-size: 0.78rem;
+    min-height: 40px;
+    touch-action: manipulation;
   }
 
   .week-nav-group {
@@ -285,8 +298,10 @@ html, body, #app-container, .main-wrapper {
 
   .header-actions .btn {
     padding: 0.35rem 0.55rem !important;
-    min-width: 36px;
+    min-width: 40px;
+    min-height: 40px;
     justify-content: center;
+    touch-action: manipulation;
   }
 
   /* Hide food name on mobile meal date selection cards */
@@ -371,6 +386,27 @@ html, body, #app-container, .main-wrapper {
   .order-address-options-grid {
     grid-template-columns: 1fr !important;
     gap: 0.5rem !important;
+  }
+
+  /* ── Touch targets: card action buttons were only ~28px tall, which makes
+     taps feel unresponsive (you miss the icon and nothing happens) ── */
+  .mobile-data-card .btn-sm {
+    min-height: 38px;
+    min-width: 38px;
+    padding: 0.3rem 0.5rem !important;
+    touch-action: manipulation;
+  }
+
+  .mobile-data-card .badge {
+    min-height: 30px;
+    padding: 0.25rem 0.6rem;
+  }
+
+  .dash-mobile-tab-btn,
+  .filter-pill,
+  .daytype-btn,
+  .bottom-nav-item {
+    touch-action: manipulation;
   }
 }
 

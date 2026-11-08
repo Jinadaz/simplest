@@ -5,6 +5,19 @@ let editingContactId = null;
 let viewingProfileContactId = null;
 let contactActiveSubTab = 'contacts'; // 'contacts' | 'debt'
 
+/* Mobile contact cards render in batches — see renderOrders() for rationale. */
+const CONTACTS_MOBILE_BATCH = 40;
+let contactsMobileRenderLimit = CONTACTS_MOBILE_BATCH;
+
+function resetContactsMobileRenderLimit() {
+  contactsMobileRenderLimit = CONTACTS_MOBILE_BATCH;
+}
+
+function loadMoreContacts() {
+  contactsMobileRenderLimit += CONTACTS_MOBILE_BATCH;
+  renderContacts();
+}
+
 function initContactsView() {
   if (contactActiveSubTab === 'debt') {
     switchContactSubTab('debt');
@@ -33,13 +46,21 @@ function switchContactSubTab(subTab) {
     if (subtabBtnDebt) subtabBtnDebt.classList.remove('active');
     if (subviewList) subviewList.style.display = 'block';
     if (subviewDebt) subviewDebt.style.display = 'none';
+    resetContactsMobileRenderLimit();
     renderContacts();
   }
 }
 
+let contactSearchTimer = null;
+
 function handleContactSearch(query) {
   contactSearchQuery = (query || '').toLowerCase().trim();
-  renderContacts();
+  if (contactSearchTimer) clearTimeout(contactSearchTimer);
+  contactSearchTimer = setTimeout(() => {
+    contactSearchTimer = null;
+    resetContactsMobileRenderLimit();
+    renderContacts();
+  }, 180);
 }
 
 function toggleContactAddress2(show) {
@@ -140,8 +161,11 @@ function renderContacts() {
 
   let tableRowsHtml = '';
   let mobileCardsHtml = '';
+  // Only build the visible variant — see renderOrders() for rationale.
+  const mobileOnly = window.matchMedia('(max-width: 600px)').matches;
+  const renderList = mobileOnly ? filtered.slice(0, contactsMobileRenderLimit) : filtered;
 
-  filtered.forEach(contact => {
+  renderList.forEach(contact => {
     const isRider = contact.isRider === true || contact.role === 'rider';
     
     // Resolve assigned rider display for Address 1
@@ -186,7 +210,7 @@ function renderContacts() {
     }
 
     // Desktop Table Row
-    tableRowsHtml += `
+    if (!mobileOnly) tableRowsHtml += `
       <tr>
         <td style="font-weight: 700; white-space: nowrap;">
           <a href="javascript:void(0)" onclick="openCustomerProfileModal('${contact.id}')" style="color: var(--primary-dark); text-decoration: underline;">
@@ -224,7 +248,7 @@ function renderContacts() {
     `;
 
     // Mobile Card Item
-    mobileCardsHtml += `
+    if (mobileOnly) mobileCardsHtml += `
       <div class="mobile-data-card">
         <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;">
           <div style="display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap;">
@@ -262,6 +286,18 @@ function renderContacts() {
       </div>
     `;
   });
+
+  if (mobileOnly && filtered.length > contactsMobileRenderLimit) {
+    const remaining = filtered.length - contactsMobileRenderLimit;
+    const step = Math.min(CONTACTS_MOBILE_BATCH, remaining);
+    mobileCardsHtml += `
+      <div class="list-load-more">
+        <button type="button" class="btn btn-outline btn-sm" onclick="loadMoreContacts()">
+          Load ${step} more · showing ${contactsMobileRenderLimit} of ${filtered.length}
+        </button>
+      </div>
+    `;
+  }
 
   container.innerHTML = `
     <!-- Desktop Table View -->

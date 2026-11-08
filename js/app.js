@@ -22,9 +22,51 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Data Change Reaction
+  // Firebase fires one snapshot per listened node (contacts, credit_logs,
+  // debt_payments, pricing ...), so a single edit can arrive as a burst of
+  // callbacks. Re-rendering the whole view for each one froze the UI for
+  // ~2s with a few hundred orders, so bursts are coalesced into one render.
+  let pendingRefreshTimer = null;
   onDataChanged((data) => {
-    refreshActiveView();
+    if (pendingRefreshTimer) return;
+    pendingRefreshTimer = setTimeout(() => {
+      pendingRefreshTimer = null;
+      refreshActiveView();
+    }, 50);
   });
+
+  // Bind WhatsApp debt chat modal controls
+  const waSendBtn = document.getElementById('wa-debt-send-btn');
+  if (waSendBtn) {
+    waSendBtn.addEventListener('click', () => {
+      if (typeof sendWhatsAppDebtMessage === 'function') sendWhatsAppDebtMessage();
+    });
+  }
+  const waOpenerSaveBtn = document.getElementById('wa-opener-save-btn');
+  if (waOpenerSaveBtn) {
+    waOpenerSaveBtn.addEventListener('click', async () => {
+      if (typeof saveWaOpenerTemplate !== 'function') return;
+      const input = document.getElementById('wa-opener-input');
+      if (!input) return;
+      const val = input.value.trim();
+      if (!val) {
+        showMaterialToast('Opening message cannot be empty', 'warning');
+        return;
+      }
+      try {
+        await saveWaOpenerTemplate(val);
+        showMaterialToast('Default opening message saved', 'success');
+      } catch (err) {
+        showMaterialToast('Failed to save opening message', 'error');
+      }
+    });
+  }
+  const waModal = document.getElementById('whatsapp-debt-modal');
+  if (waModal) {
+    waModal.addEventListener('click', (e) => {
+      if (e.target === waModal) closeWhatsAppDebtModal();
+    });
+  }
 
   // Setup View Navigation
   setupNavigation();
@@ -84,6 +126,16 @@ function setupNavigation() {
       triggerHapticFeedback('light');
     }
   });
+
+  // Re-render when crossing the mobile/desktop layout breakpoint.
+  // Views only build the markup for the active layout, so a stale render
+  // would leave an empty list after resizing the window (or rotating).
+  if (window.matchMedia) {
+    const layoutMq = window.matchMedia('(max-width: 600px)');
+    const onLayoutChange = () => refreshActiveView();
+    if (layoutMq.addEventListener) layoutMq.addEventListener('change', onLayoutChange);
+    else if (layoutMq.addListener) layoutMq.addListener(onLayoutChange);
+  }
 
   // Modal ESC Key Close Listener
   document.addEventListener('keydown', (e) => {

@@ -370,15 +370,18 @@ function renderCustomerDebtView() {
         </td>
         <td style="padding: 0.85rem 1rem; text-align: right; white-space: nowrap;">
           <div style="display: inline-flex; gap: 0.45rem; align-items: center;">
-            <button type="button" class="btn btn-sm btn-primary" onclick="openRecordRepaymentModal('${c.contactId}')"
-              style="padding: 0.35rem 0.75rem; font-size: 0.78rem; font-weight: 700; background: #059669; border-color: #059669;"
-              title="Record payment for this customer">
-              💳 Record Payment
+            <button type="button" class="btn btn-sm btn-whatsapp wa-icon-btn" onclick="openWhatsAppDebtModal('${c.contactId}')"
+              title="Send debt reminder via WhatsApp">
+              ${getSvgIcon('whatsapp')}
             </button>
-            <button type="button" class="btn btn-sm btn-outline" onclick="openCustomerDebtHistoryModal('${c.contactId}')"
-              style="padding: 0.35rem 0.7rem; font-size: 0.78rem; font-weight: 700;"
+            <button type="button" class="btn btn-sm wa-icon-btn" onclick="openRecordRepaymentModal('${c.contactId}')"
+              style="background: #059669; border-color: #059669; color: #fff;"
+              title="Record payment for this customer">
+              ${getSvgIcon('dollar')}
+            </button>
+            <button type="button" class="btn btn-sm btn-outline wa-icon-btn" onclick="openCustomerDebtHistoryModal('${c.contactId}')"
               title="View all orders and payment history">
-              📜 Details
+              ${getSvgIcon('orders')}
             </button>
           </div>
         </td>
@@ -418,6 +421,9 @@ function renderCustomerDebtView() {
         </div>
 
         <div style="display: flex; gap: 0.5rem; justify-content: flex-end; align-items: center;">
+          <button type="button" class="btn btn-sm btn-whatsapp" onclick="openWhatsAppDebtModal('${c.contactId}')" style="flex: 1; padding: 0.45rem; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; gap: 0.3rem;">
+            ${getSvgIcon('whatsapp')} WhatsApp
+          </button>
           <button type="button" class="btn btn-sm btn-outline" onclick="openCustomerDebtHistoryModal('${c.contactId}')" style="flex: 1; padding: 0.45rem; font-weight: 700;">
             📜 Order &amp; Debt History
           </button>

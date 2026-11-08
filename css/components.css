@@ -366,6 +366,18 @@
   font-weight: 700;
   border-radius: 9999px;
   white-space: nowrap;
+  /* .badge is sometimes rendered on a <button> (e.g. payment status toggle).
+     Without this, the UA default button border draws an ugly grey ring. */
+  border: none;
+  background-clip: padding-box;
+}
+
+button.badge {
+  cursor: pointer;
+  font-family: inherit;
+  line-height: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .badge-paid { background: var(--paid-bg); color: var(--paid-text); }
@@ -442,6 +454,11 @@
 }
 
 /* Modals */
+/* NOTE: `backdrop-filter` is intentionally NOT set on the base rule.
+   Every modal lives in the DOM permanently, so a full-screen backdrop-filter
+   here would keep 13+ blur layers alive on the GPU even while closed, which
+   is a major source of scroll/tap jank on phones. Blur is applied only when
+   the overlay is actually visible. */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -449,20 +466,23 @@
   right: 0;
   bottom: 0;
   background: rgba(15, 23, 42, 0.45);
-  backdrop-filter: blur(3px);
   z-index: 100;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.15s ease;
+  transition: opacity 0.15s ease, visibility 0.15s ease;
 }
 
 .modal-overlay.active {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
 }
 
 .modal-card {
@@ -616,6 +636,24 @@
   display: none;
   flex-direction: column;
   gap: 0.75rem;
+}
+
+/* "Load more" footer used when mobile lists render incrementally */
+.list-load-more {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 0 0.25rem;
+}
+
+.list-load-more .btn {
+  width: 100%;
+  font-weight: 700;
+  border-style: dashed;
+  color: var(--text-muted);
+}
+
+.list-load-more .btn:active {
+  background: var(--border-light);
 }
 
 .mobile-data-card {
@@ -2305,16 +2343,18 @@
   justify-content: center;
   z-index: 100000;
   background: rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
   opacity: 0;
+  visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
 .clean-checkmark-overlay.active {
   opacity: 1;
+  visibility: visible;
   pointer-events: auto;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .clean-checkmark-box {
@@ -3560,6 +3600,270 @@
 [data-theme="dark"] #profile-debt-summary-card {
   background: rgba(239, 68, 68, 0.08) !important;
   border-color: rgba(239, 68, 68, 0.3) !important;
+}
+
+/* ==========================================================================
+   WhatsApp Debt Chat Modal (WhatsApp-style messenger)
+   ========================================================================== */
+.wa-chat-modal-card {
+  max-width: 460px !important;
+  background: #e5ddd5 !important;
+}
+
+.wa-chat-header {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.65rem 0.9rem;
+  background: #075e54;
+  color: #fff;
+}
+
+.wa-chat-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: #128c7e;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 1.05rem;
+  flex-shrink: 0;
+}
+
+.wa-chat-title {
+  font-size: 1rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.wa-chat-subtitle {
+  font-size: 0.72rem;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.wa-chat-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  line-height: 1;
+}
+
+.wa-chat-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0.9rem;
+  background: #e5ddd5;
+  background-image: radial-gradient(circle at 1px 1px, rgba(0, 0, 0, 0.035) 1px, transparent 0);
+  background-size: 18px 18px;
+}
+
+.wa-chat-date-divider {
+  text-align: center;
+  margin: 0.4rem 0 0.75rem;
+}
+
+.wa-chat-date-divider span {
+  background: #fdf3e7;
+  color: #6b6b6b;
+  font-size: 0.68rem;
+  font-weight: 600;
+  padding: 0.2rem 0.7rem;
+  border-radius: 8px;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+}
+
+.wa-bubble {
+  max-width: 82%;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  position: relative;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  word-break: break-word;
+  margin-bottom: 0.35rem;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.08);
+  white-space: pre-wrap;
+}
+
+.wa-bubble-in {
+  background: #ffffff;
+  color: #111b21;
+  margin-right: auto;
+  border-top-left-radius: 0;
+}
+
+.wa-bubble-out {
+  background: #dcf8c6;
+  color: #111b21;
+  margin-left: auto;
+  border-top-right-radius: 0;
+}
+
+.wa-bubble-time {
+  float: right;
+  margin: 0.4rem 0 0 0.55rem;
+  font-size: 0.62rem;
+  color: #667781;
+  line-height: 1;
+  transform: translateY(3px);
+}
+
+.wa-chat-editor {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.5rem;
+  padding: 0.55rem 0.7rem;
+  background: #f0f0f0;
+  border-top: 1px solid #ddd;
+}
+
+.wa-chat-editor textarea {
+  flex: 1;
+  resize: none;
+  border: none;
+  border-radius: 18px;
+  background: #ffffff;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.84rem;
+  line-height: 1.4;
+  color: #111b21;
+  font-family: inherit;
+  outline: none;
+  min-height: 84px;
+  max-height: 220px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+.wa-chat-send {
+  flex-shrink: 0;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: #25d366;
+  color: #fff;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+  transition: transform 0.1s ease, background 0.1s ease;
+}
+
+.wa-chat-send:hover {
+  background: #1eb858;
+  transform: scale(1.04);
+}
+
+.wa-chat-send:active {
+  transform: scale(0.96);
+}
+
+.wa-chat-send .svg-icon {
+  width: 22px;
+  height: 22px;
+}
+
+.btn-whatsapp {
+  background: #25d366 !important;
+  border-color: #25d366 !important;
+  color: #fff !important;
+}
+
+.btn-whatsapp:hover {
+  background: #1eb858 !important;
+  border-color: #1eb858 !important;
+}
+
+/* Compact icon-only button (debt table action column) */
+.wa-icon-btn {
+  padding: 0.4rem !important;
+  width: 34px;
+  height: 34px;
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  border-radius: 8px;
+}
+
+.wa-icon-btn .svg-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.btn-whatsapp.wa-icon-btn .svg-icon {
+  fill: #fff;
+  stroke: none;
+}
+
+/* WhatsApp opener (custom default greeting) */
+.wa-chat-opener {
+  background: #f0f0f0;
+  border-bottom: 1px solid #ddd;
+}
+
+.wa-chat-opener-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.wa-chat-opener-title {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: #075e54;
+}
+
+.wa-chat-opener-toggle {
+  font-size: 0.85rem;
+  color: #667781;
+  transition: transform 0.15s ease;
+}
+
+.wa-chat-opener-panel {
+  display: none;
+  padding: 0 0.9rem 0.7rem;
+}
+
+.wa-chat-opener-panel.open {
+  display: block;
+}
+
+.wa-chat-opener.open .wa-chat-opener-toggle {
+  transform: rotate(180deg);
+}
+
+.wa-opener-input {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  background: #ffffff;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: #111b21;
+  font-family: inherit;
+  outline: none;
+  min-height: 52px;
+}
+
+.wa-opener-input:focus {
+  border-color: #25d366;
 }
 
 
